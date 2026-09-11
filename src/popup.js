@@ -98,6 +98,7 @@ const RECOVERIES = {
 
 // ----------------------------------------------------------------- actions --
 async function start() {
+  if (tabId == null) return;
   show('state-working');
   $('stage-name').textContent = 'Reading the page';
   $('stage-count').textContent = '';
@@ -108,16 +109,24 @@ async function start() {
 function openSettings(open) {
   $('view-main').hidden = open;
   $('view-settings').hidden = !open;
+  $('destination').classList.toggle('back', open);
   $('destination').classList.toggle('unset', !open && !isConfigured());
-  $('destination-text').textContent = open ? 'Done' : destinationLabel();
+  $('destination').title = open ? 'Back' : 'Settings';
+  $('destination-text').textContent = open ? 'Back' : destinationLabel();
+  // Coming back from a long settings view at its old scroll position looks like
+  // nothing happened.
+  window.scrollTo(0, 0);
 }
 
+const settingsOpen = () => !$('view-settings').hidden;
+
 const isConfigured = () =>
-  missingFields(getProvider(settings.providerId), providerConfig(settings)).length === 0;
+  Boolean(settings) && missingFields(getProvider(settings.providerId), providerConfig(settings)).length === 0;
 
 // The header always says where a capture would go. It is the one fact worth
 // knowing before pressing, and it doubles as the way into settings.
 function destinationLabel() {
+  if (!settings) return 'Not set up';
   const provider = getProvider(settings.providerId);
   if (!isConfigured()) return 'Not set up';
   const space = providerConfig(settings).spaceId;
@@ -318,10 +327,15 @@ async function save() {
   });
 
   const missing = missingFields(provider, config);
-  $('save-note').textContent = missing.length
-    ? `Saved. ${provider.label} still needs ${missing.join(' and ').toLowerCase()}.`
-    : 'Saved.';
   renderIdle();
+
+  if (!missing.length) {
+    // Nothing left to fill in, so the task is finished — returning to the page
+    // is the answer, and the header now naming the destination is the receipt.
+    $('save-note').textContent = '';
+    return openSettings(false);
+  }
+  $('save-note').textContent = `Saved. ${provider.label} still needs ${missing.join(' and ').toLowerCase()}.`;
 }
 
 // --------------------------------------------------------- in-page button ---
@@ -340,13 +354,19 @@ async function renderInPageToggle() {
 }
 
 async function toggleInPage(event) {
-  const wanted = event.target.checked;
-  // Chrome grants this only from a user gesture, which is why it is requested
-  // here and not from the service worker.
-  const granted = wanted
-    ? await chrome.permissions.request(ALL_SITES)
-    : !(await chrome.permissions.remove(ALL_SITES));
-  if (wanted && !granted) event.target.checked = false;
+  // Turning it ON cannot happen here. Chrome closes the popup to show the
+  // permission prompt, which destroys this page mid-await — the checkbox ticks,
+  // the window vanishes, and nothing is granted. A normal tab survives the
+  // prompt, so the ask happens there.
+  if (event.target.checked) {
+    event.target.checked = false;
+    await chrome.tabs.create({ url: chrome.runtime.getURL('permission.html') });
+    window.close();
+    return;
+  }
+
+  // Removing needs no prompt, so it is safe to do inline.
+  await chrome.permissions.remove(ALL_SITES);
   await toBackground(MSG.SYNC_IN_PAGE);
   renderInPageToggle();
 }
@@ -356,8 +376,11 @@ function renderIdle() {
   const provider = getProvider(settings.providerId);
   const missing = missingFields(provider, providerConfig(settings));
 
-  $('destination-text').textContent = destinationLabel();
-  $('destination').classList.toggle('unset', missing.length > 0);
+  // While settings is open this button says "Back" and must keep saying it.
+  if (!settingsOpen()) {
+    $('destination-text').textContent = destinationLabel();
+    $('destination').classList.toggle('unset', missing.length > 0);
+  }
 
   $('remember').disabled = missing.length > 0;
   $('idle-hint').textContent = missing.length
@@ -377,6 +400,20 @@ async function renderShortcut() {
 
 // -------------------------------------------------------------------- boot --
 (async function boot() {
+  // Wired first, before a single await. boot() makes several round trips, and a
+  // click that lands in that window must not be swallowed — pressing the gear
+  // the instant the popup opens is exactly when it is most likely to happen.
+  $('remember').onclick = start;
+  $('retry').onclick = start;
+  $('again').onclick = start;
+  $('save').onclick = save;
+  $('provider').onchange = renderProviderFields;
+  $('model-size').onchange = renderModelNote;
+  $('inpage').onchange = toggleInPage;
+  $('destination').onclick = () => openSettings(!settingsOpen());
+  $('close-settings').onclick = () => openSettings(false);
+  for (const el of document.querySelectorAll('input[name=mode]')) el.onchange = renderModeNote;
+
   settings = await loadSettings();
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -390,16 +427,6 @@ async function renderShortcut() {
   renderIdle();
   renderShortcut();
   renderInPageToggle();
-
-  $('remember').onclick = start;
-  $('retry').onclick = start;
-  $('again').onclick = start;
-  $('save').onclick = save;
-  $('provider').onchange = renderProviderFields;
-  $('model-size').onchange = renderModelNote;
-  $('inpage').onchange = toggleInPage;
-  $('destination').onclick = () => openSettings($('view-settings').hidden);
-  for (const el of document.querySelectorAll('input[name=mode]')) el.onchange = renderModeNote;
 
   // Reattach to whatever is already running for this tab.
   if (tabId != null) renderJob(await toBackground(MSG.GET_CAPTURE_STATE, { tabId }));

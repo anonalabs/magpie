@@ -267,6 +267,90 @@ async function main() {
     listed.length > 0 && listed[0].headers.authorization === 'Bearer anona_live_testkey',
     `${listed.length} call(s)`);
 
+  // ---- getting back out of settings -------------------------------------
+  // The settings view is taller than the popup, so it scrolls. The way home
+  // must not scroll away with it.
+  const exits = await evalIn(cdpSettings, `
+    // Make sure we are in settings, however the earlier step left things.
+    if (document.getElementById('view-settings').hidden) document.getElementById('destination').click();
+    const open = !document.getElementById('view-settings').hidden;
+    const bar = getComputedStyle(document.querySelector('.topbar'));
+    const viaHeader = document.getElementById('destination');
+    const viaBottom = document.getElementById('close-settings');
+    viaBottom.click();
+    const home = document.getElementById('view-main').hidden === false;
+    viaHeader.click();
+    const backIn = document.getElementById('view-settings').hidden === false;
+    const label = document.getElementById('destination-text').textContent;
+    viaHeader.click();
+    return { open, sticky: bar.position, home, backIn, label,
+             homeAgain: document.getElementById('view-main').hidden === false };`);
+
+  check('settings was open to begin with', exits.open === true, String(exits.open));
+  check('the top bar is pinned, so the way back never scrolls off', exits.sticky === 'sticky', exits.sticky);
+  check('the bottom Back button returns home', exits.home === true, String(exits.home));
+  check('the header control toggles both ways', exits.backIn && exits.homeAgain, `in ${exits.backIn}, out ${exits.homeAgain}`);
+  check('and it says Back while settings is open', exits.label === 'Back', exits.label);
+
+  // ---- the in-page button ----------------------------------------------
+  // The optional all-sites grant needs a native Chrome dialog that cannot be
+  // driven from here, so the permission is stood in for by registering the
+  // script the same way syncInPage() does. What is under test is the button.
+  await evalIn(cdpSettings, `
+    await chrome.scripting.registerContentScripts([{
+      id: 'magpie-in-page', js: ['in-page.js'],
+      matches: ['http://127.0.0.1:${PORT_WEB}/*'], runAt: 'document_idle', allFrames: false,
+    }]);
+    return true;`);
+
+  const { targetId: pageTab } = await browser.send('Target.createTarget', { url: `http://127.0.0.1:${PORT_WEB}/` });
+  const cdpPage = await waitFor(async () => {
+    const t = (await http('/json/list')).find((x) => x.id === pageTab);
+    if (!t?.webSocketDebuggerUrl) return null;
+    const c = connect(t.webSocketDebuggerUrl); await c.ready; await c.send('Runtime.enable');
+    return c;
+  }, 'the page tab');
+
+  const mounted = await waitFor(async () => {
+    const { result } = await cdpPage.send('Runtime.evaluate', {
+      expression: `(() => { const h = document.getElementById('magpie-in-page-root');
+        if (!h) return null;
+        const r = h.getBoundingClientRect();
+        return { w: Math.round(r.width), h: Math.round(r.height), x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2),
+                 position: getComputedStyle(h).position, z: getComputedStyle(h).zIndex };
+      })()`,
+      returnByValue: true,
+    });
+    return result.value;
+  }, 'the in-page button to mount', 30).catch(() => null);
+
+  check('the in-page button mounts on a real page', Boolean(mounted),
+    mounted ? `${mounted.w}x${mounted.h} at ${mounted.x},${mounted.y}` : 'never appeared');
+
+  if (mounted) {
+    check('it is fixed and above the page', mounted.position === 'fixed' && Number(mounted.z) > 1000000,
+      `${mounted.position} z=${mounted.z}`);
+    check('it is a dot at rest, not a bar', mounted.w < 70 && mounted.h > 20 && mounted.h < 60,
+      `${mounted.w}x${mounted.h}`);
+
+    // The shadow root is closed on purpose, so this asserts behaviour rather
+    // than internals: a real click at its centre must start a capture.
+    const writesBefore = received.filter((r) => r.url === '/v1/record').length;
+    for (const type of ['mousePressed', 'mouseReleased']) {
+      await cdpPage.send('Input.dispatchMouseEvent', {
+        type, x: mounted.x, y: mounted.y, button: 'left', clickCount: 1, buttons: type === 'mousePressed' ? 1 : 0,
+      });
+    }
+
+    const captured = await waitFor(async () => {
+      const after = received.filter((r) => r.url === '/v1/record').length;
+      return after > writesBefore ? after - writesBefore : null;
+    }, 'a capture started from the page button', 40).catch(() => 0);
+
+    check('clicking it remembers the page', captured > 0,
+      captured ? `${captured} write(s) reached the provider` : 'no write ever arrived');
+  }
+
   // ---- distill with no WebGPU -----------------------------------------
   await evalIn(cdp, `
     const s = (await chrome.storage.local.get('settings')).settings;

@@ -6,7 +6,47 @@ export const mem0 = {
   keyPlaceholder: 'm0-...',
   fields: [
     { key: 'apiKey', label: 'API key', type: 'password', placeholder: 'm0-...', required: true },
-    { key: 'userId', label: 'User id', type: 'text', placeholder: 'you@example.com', required: true },
+    {
+      key: 'userId',
+      label: 'User id',
+      type: 'text',
+      placeholder: 'you@example.com',
+      required: true,
+      loadLabel: 'Load users',
+      async loadOptions(config) {
+        if (!config.apiKey) return { ok: false, message: 'Add your API key first.' };
+
+        let res;
+        try {
+          res = await fetch('https://api.mem0.ai/v1/entities/', {
+            headers: { Authorization: `Token ${config.apiKey}` },
+          });
+        } catch (err) {
+          return { ok: false, message: `Could not reach Mem0. ${err.message ?? err}` };
+        }
+
+        let payload = null;
+        try { payload = await res.json(); } catch { /* leave null */ }
+        if (!res.ok) {
+          return { ok: false, message: payload?.detail ?? payload?.message ?? describeStatus(res.status) };
+        }
+
+        // The endpoint is called "get users" but returns every entity kind —
+        // agents, apps and runs as well — distinguished only by `type`. Offering
+        // an agent as a user id would file your reading under a bot.
+        return {
+          ok: true,
+          options: (payload?.results ?? [])
+            .filter((entity) => entity.type === 'user')
+            .map((entity) => ({
+              // `name` is the user_id that was written; `id` is Mem0's own key.
+              value: entity.name ?? entity.id,
+              label: entity.name ?? entity.id,
+              note: entity.total_memories ? `${entity.total_memories} memories` : '',
+            })),
+        };
+      },
+    },
   ],
 
   buildRequest(capture, config) {
@@ -39,3 +79,9 @@ export const mem0 = {
     };
   },
 };
+
+function describeStatus(status) {
+  if (status === 401 || status === 403) return 'That API key was rejected.';
+  if (status === 429) return 'Mem0 is rate limiting this key.';
+  return `Mem0 returned HTTP ${status}.`;
+}

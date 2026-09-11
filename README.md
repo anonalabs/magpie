@@ -97,6 +97,18 @@ npm run spike       # re-runs the phase-0 architecture probes
 really send — same fetch, same headers, same host permission. Nothing inside the
 extension is stubbed.
 
+### Picking a value instead of typing it
+
+A provider field can declare `loadOptions(config)` and the popup turns it into a
+picker, filled automatically once a key is saved. Anona lists your spaces; Mem0
+lists the users it already holds, filtered to `type === "user"` because the
+endpoint named "get users" returns agents and runs too.
+
+Supermemory deliberately has none: there is no endpoint that enumerates
+container tags, because a tag is just a string that starts existing the moment
+it is used. Typing stays possible everywhere for the same reason — an Anona
+space is created by its first write, so a list must never become a cage.
+
 ### Adding a memory layer
 
 One file in [`src/lib/providers/`](src/lib/providers/), exporting `fields`,

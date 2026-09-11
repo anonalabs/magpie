@@ -3,6 +3,7 @@
 <title>magpie</title>
 <link rel="stylesheet" href="popup.css">
 
+<div class="topbar">
 <header class="bar">
   <span class="brand">
     <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
@@ -17,11 +18,13 @@
   </span>
 
   <button class="destination" id="destination" title="Settings">
+    <span class="back-arrow" aria-hidden="true">&#8249;</span>
     <span id="destination-text">Not set up</span>
   </button>
 </header>
 
 <div class="rail" id="rail" hidden><div class="rail-fill" id="rail-fill"></div></div>
+</div>
 
 <main id="view-main">
   <div class="subject">
@@ -106,6 +109,7 @@
   </section>
 
   <button class="primary" id="save"><span>Save</span></button>
+  <button class="ghost" id="close-settings">Back</button>
   <p class="footnote" id="save-note"></p>
 </main>
 

@@ -56,6 +56,7 @@ const entries = {
   'background.js': { entry: join(SRC, 'background.js'), format: 'esm' },
   'offscreen.js': { entry: join(SRC, 'offscreen.js'), format: 'esm' },
   'popup.js': { entry: join(SRC, 'popup.js'), format: 'esm' },
+  'permission.js': { entry: join(SRC, 'permission.js'), format: 'esm' },
   // Injected by executeScript, which runs a classic script.
   'content-script.js': { entry: join(SRC, 'content-script.js'), format: 'iife' },
   // Registered as a content script; also classic.
@@ -80,7 +81,9 @@ async function build() {
     });
   }
 
-  for (const file of ['popup.html', 'popup.css', 'offscreen.html']) cpSync(join(SRC, file), join(DIST, file));
+  for (const file of ['popup.html', 'popup.css', 'offscreen.html', 'permission.html']) {
+    cpSync(join(SRC, file), join(DIST, file));
+  }
 
   const wasmDir = join(SRC, 'vendor/wasm');
   const missing = Object.values(MODELS).filter((m) => !existsSync(join(wasmDir, m.libFile)));

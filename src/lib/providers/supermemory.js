@@ -6,6 +6,9 @@ export const supermemory = {
   keyPlaceholder: 'sm_...',
   fields: [
     { key: 'apiKey', label: 'API key', type: 'password', placeholder: 'sm_...', required: true },
+    // Free text, and not a picker: Supermemory has no endpoint that enumerates
+    // container tags. A tag is just a string that starts existing the moment it
+    // is used, so there is nothing to list and typing one is how you make one.
     { key: 'containerTag', label: 'Container tag', type: 'text', placeholder: 'optional', required: false },
   ],
 
@@ -17,7 +20,9 @@ export const supermemory = {
       customId: `magpie:${capture.url}`,
       metadata: { url: capture.url, title: capture.title, source: 'magpie', mode: capture.mode },
     };
-    if (config.containerTag) body.containerTags = [config.containerTag];
+    // Singular. The plural `containerTags` array is deprecated on v3 and is not
+    // accepted at all on v4.
+    if (config.containerTag) body.containerTag = config.containerTag;
 
     return {
       url: 'https://api.supermemory.ai/v3/documents',

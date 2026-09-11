@@ -68,6 +68,10 @@ main { padding: 14px 16px 16px; }
 
 /* ---------------------------------------------------------------- header -- */
 
+/* The way back lives up here, and the settings view is taller than the popup.
+   Without this it scrolls off the top and there is no way home. */
+.topbar { position: sticky; top: 0; z-index: 5; background: var(--bg); }
+
 .bar {
   display: flex;
   align-items: center;
@@ -111,6 +115,12 @@ main { padding: 14px 16px 16px; }
   white-space: nowrap;
 }
 .destination.unset { color: var(--muted); }
+
+/* Only shown while settings is open, where the chip is a way back rather than a
+   statement of where captures go. */
+.back-arrow { display: none; font-size: 14px; line-height: 1; margin-left: -1px; }
+.destination.back .back-arrow { display: inline; }
+.destination.back { color: var(--ink); }
 
 /* Full-bleed, like the browser's own loading line: visible from the corner of
    the eye without reading anything. */
@@ -283,6 +293,7 @@ button { font: inherit; }
 }
 .ghost:hover { color: var(--ink); border-color: var(--line-strong); }
 .ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+#close-settings { margin-top: 7px; }
 
 /* -------------------------------------------------------------- settings -- */
 

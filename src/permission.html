@@ -1,0 +1,47 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>magpie — button on pages</title>
+<link rel="stylesheet" href="popup.css">
+
+<div class="topbar">
+  <header class="bar">
+    <span class="brand">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <defs><clipPath id="tile"><rect x="0" y="0" width="32" height="32" rx="7.4"/></clipPath></defs>
+        <g clip-path="url(#tile)">
+          <rect width="32" height="32" fill="var(--mark-ground)"/>
+          <circle cx="6.4" cy="30.4" r="16" fill="var(--mark-swell)"/>
+          <circle cx="21.8" cy="10.2" r="4.6" fill="var(--mark-dot)"/>
+        </g>
+      </svg>
+      <span class="wordmark">magpie</span>
+    </span>
+  </header>
+</div>
+
+<main>
+  <h1>Put a magpie button on pages</h1>
+
+  <p class="detail">
+    A small button sits in the corner of every page, so you can remember what
+    you are reading without opening this extension. Drag it to move it, or
+    dismiss it on any site you would rather it left alone.
+  </p>
+
+  <div class="status working" id="state">
+    <span class="status-text">Chrome will ask you to allow magpie on all sites.</span>
+  </div>
+
+  <p class="detail">
+    That prompt says <b>read and change all your data on all websites</b>, which
+    is Chrome's wording for any extension that puts something on a page. magpie
+    uses it for the button and for reading the article you ask it to remember.
+    It is not used for anything else, and turning this off removes the button
+    and the access along with it.
+  </p>
+
+  <button class="primary" id="allow"><span>Allow on all sites</span></button>
+  <button class="ghost" id="close">Not now</button>
+</main>
+
+<script src="permission.js" type="module"></script>

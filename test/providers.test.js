@@ -129,10 +129,24 @@ describe('supermemory', () => {
     expect(sentBody(spy).customId).toBe('magpie:https://example.com/a');
   });
 
-  it('omits containerTags entirely when none is set', async () => {
+  it('omits the container tag entirely when none is set', async () => {
     const spy = mockFetch(200, { id: 'doc_1' });
     await push('supermemory', capture, { apiKey: 'k', containerTag: '' });
+    expect(sentBody(spy)).not.toHaveProperty('containerTag');
     expect(sentBody(spy)).not.toHaveProperty('containerTags');
+  });
+
+  it('sends the singular containerTag, not the deprecated array', async () => {
+    // The plural form is deprecated on v3 and rejected on v4.
+    const spy = mockFetch(200, { id: 'doc_1' });
+    await push('supermemory', capture, { apiKey: 'k', containerTag: 'reading' });
+    expect(sentBody(spy).containerTag).toBe('reading');
+    expect(sentBody(spy)).not.toHaveProperty('containerTags');
+  });
+
+  it('has no picker, because there is no endpoint that lists tags', async () => {
+    const res = await loadFieldOptions('supermemory', 'containerTag', { apiKey: 'k' });
+    expect(res.ok).toBe(false);
   });
 
   it('reports a finished document as stored', async () => {
@@ -207,5 +221,46 @@ describe('anona space listing', () => {
   it('has nothing to load for a provider that lists nothing', async () => {
     const res = await loadFieldOptions('mem0', 'userId', { apiKey: 'k' });
     expect(res.ok).toBe(false);
+  });
+});
+
+
+describe('mem0 user listing', () => {
+  const withKey = { apiKey: 'm0-x', userId: 'alice' };
+
+  it('lists entities with a Token header', async () => {
+    const spy = mockFetch(200, { results: [] });
+    await loadFieldOptions('mem0', 'userId', withKey);
+    expect(spy.mock.calls[0][0]).toBe('https://api.mem0.ai/v1/entities/');
+    expect(spy.mock.calls[0][1].headers.Authorization).toBe('Token m0-x');
+  });
+
+  it('offers only users, never agents, apps or runs', async () => {
+    // The endpoint is named "get users" and returns every entity kind.
+    mockFetch(200, { results: [
+      { id: '1', name: 'alice', type: 'user', total_memories: 12 },
+      { id: '2', name: 'support-bot', type: 'agent' },
+      { id: '3', name: 'run-7', type: 'run' },
+      { id: '4', name: 'bob', type: 'user' },
+    ] });
+
+    const res = await loadFieldOptions('mem0', 'userId', withKey);
+    expect(res.options.map((o) => o.value)).toEqual(['alice', 'bob']);
+    expect(res.options[0].note).toBe('12 memories');
+    expect(res.options[1].note).toBe('');
+  });
+
+  it('refuses to call before there is a key', async () => {
+    const spy = mockFetch(200, {});
+    const res = await loadFieldOptions('mem0', 'userId', { userId: 'alice' });
+    expect(res.ok).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('reports a rejected key rather than an empty user list', async () => {
+    mockFetch(401, { detail: 'Invalid token.' });
+    const res = await loadFieldOptions('mem0', 'userId', withKey);
+    expect(res.ok).toBe(false);
+    expect(res.message).toMatch(/Invalid token/);
   });
 });
