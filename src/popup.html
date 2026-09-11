@@ -1,0 +1,86 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>magpie</title>
+<link rel="stylesheet" href="popup.css">
+
+<header>
+  <span class="wordmark">magpie</span>
+  <button class="icon-button" id="toggle-settings" title="Settings">&#9881;</button>
+</header>
+
+<main id="view-main">
+  <div class="page">
+    <div class="page-title" id="page-title">&hellip;</div>
+    <div class="page-url" id="page-url"></div>
+  </div>
+
+  <section id="state-idle">
+    <button class="primary" id="remember">Remember this page</button>
+    <p class="hint" id="idle-hint"></p>
+  </section>
+
+  <section id="state-working" hidden>
+    <div class="stage">
+      <span class="stage-name" id="stage-name">Working</span>
+      <span class="stage-count" id="stage-count"></span>
+    </div>
+    <div class="bar"><div id="bar-fill" style="width:0%"></div></div>
+    <p class="hint">You can close this. It keeps going.</p>
+  </section>
+
+  <section id="state-done" hidden>
+    <div class="receipt" id="receipt">
+      <h2 id="receipt-title">Remembered</h2>
+      <p id="receipt-detail"></p>
+      <div class="summary" id="receipt-summary" hidden></div>
+    </div>
+    <button class="secondary" id="again">Remember again</button>
+  </section>
+
+  <section id="state-error" hidden>
+    <div class="receipt bad">
+      <h2 id="error-title">Could not remember this</h2>
+      <p id="error-detail"></p>
+    </div>
+    <button class="primary" id="recover" hidden></button>
+    <button class="secondary" id="retry">Try again</button>
+  </section>
+</main>
+
+<main id="view-settings" hidden>
+  <fieldset>
+    <legend>What gets sent</legend>
+    <div class="choice">
+      <input type="radio" name="mode" id="mode-distill" value="distill">
+      <label class="body" for="mode-distill">
+        <b>Distill on this device</b>
+        <small>A local model writes the summary. The page text never leaves your machine.</small>
+      </label>
+    </div>
+    <div class="choice">
+      <input type="radio" name="mode" id="mode-raw" value="raw">
+      <label class="body" for="mode-raw">
+        <b>Send the page text</b>
+        <small>No model, no download. The full article text is sent to your memory layer, which does its own extraction.</small>
+      </label>
+    </div>
+  </fieldset>
+
+  <label id="model-field">
+    <span>Local model</span>
+    <select id="model-size"></select>
+    <small class="field-note" id="model-note"></small>
+  </label>
+
+  <label>
+    <span>Memory layer</span>
+    <select id="provider"></select>
+  </label>
+
+  <div id="provider-fields"></div>
+
+  <button class="primary" id="save">Save</button>
+  <p class="hint" id="save-note"></p>
+</main>
+
+<script src="popup.js" type="module"></script>

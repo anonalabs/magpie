@@ -1,0 +1,139 @@
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { PROVIDERS, getProvider, missingFields, push } from '../src/lib/providers/registry.js';
+
+const capture = {
+  title: 'A Page',
+  url: 'https://example.com/a',
+  content: 'The distilled summary.',
+  capturedAt: '2026-09-11T00:00:00.000Z',
+  mode: 'distill',
+};
+
+function mockFetch(status, payload) {
+  const spy = vi.fn().mockResolvedValue({ status, json: async () => payload });
+  vi.stubGlobal('fetch', spy);
+  return spy;
+}
+
+const sentBody = (spy) => JSON.parse(spy.mock.calls[0][1].body);
+const sentHeaders = (spy) => spy.mock.calls[0][1].headers;
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe('registry', () => {
+  it('exposes every provider under its own id', () => {
+    for (const [id, provider] of Object.entries(PROVIDERS)) expect(provider.id).toBe(id);
+  });
+
+  it('reports missing required fields by label, and ignores optional ones', () => {
+    expect(missingFields(getProvider('anona'), {})).toEqual(['API key', 'Space']);
+    expect(missingFields(getProvider('anona'), { apiKey: 'k', spaceId: 'default' })).toEqual([]);
+    expect(missingFields(getProvider('supermemory'), { apiKey: 'k' })).toEqual([]);
+  });
+
+  it('refuses to send when the provider is not configured', async () => {
+    const spy = mockFetch(200, {});
+    const res = await push('anona', capture, {});
+    expect(res.ok).toBe(false);
+    expect(res.code).toBe('not_configured');
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('turns an unreachable host into an error rather than a throw', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Failed to fetch')));
+    const res = await push('anona', capture, { apiKey: 'k', spaceId: 'default' });
+    expect(res).toMatchObject({ ok: false, code: 'network' });
+  });
+
+  it('survives an error response that is not JSON', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      status: 502, json: async () => { throw new SyntaxError('Unexpected token <'); },
+    }));
+    const res = await push('anona', capture, { apiKey: 'k', spaceId: 'default' });
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(502);
+  });
+});
+
+describe('anona', () => {
+  it('sends exactly the fields the API models declare', async () => {
+    // Anona's request models are extra="forbid", so a stray or misspelled key is
+    // a 422 rather than a silent drop. Pin the exact key set.
+    const spy = mockFetch(201, { job_id: 'job_1', status: 'processing' });
+    await push('anona', capture, { apiKey: 'anona_live_x', spaceId: 'notes' });
+
+    expect(Object.keys(sentBody(spy)).sort())
+      .toEqual(['async', 'content', 'metadata', 'space_id', 'tags']);
+  });
+
+  it('uses the "async" alias, not the Python field name', async () => {
+    const spy = mockFetch(201, { job_id: 'job_1' });
+    await push('anona', capture, { apiKey: 'k', spaceId: 'default' });
+
+    const body = sentBody(spy);
+    expect(body.async).toBe(true);
+    expect(body).not.toHaveProperty('async_');
+  });
+
+  it('never sends a tag under the reserved anona: prefix', async () => {
+    const spy = mockFetch(201, {});
+    await push('anona', capture, { apiKey: 'k', spaceId: 'default' });
+    for (const tag of sentBody(spy).tags) expect(tag.startsWith('anona:')).toBe(false);
+  });
+
+  it('reports a queued write as queued, not stored', async () => {
+    mockFetch(201, { job_id: 'job_1', status: 'processing' });
+    const res = await push('anona', capture, { apiKey: 'k', spaceId: 'default' });
+    expect(res).toMatchObject({ ok: true, id: 'job_1', state: 'queued' });
+  });
+
+  it('reads the {error:{code,message}} envelope, not FastAPI\'s detail', async () => {
+    mockFetch(403, { error: { code: 'space_read_only', message: 'Read-only member attempted a write' } });
+    const res = await push('anona', capture, { apiKey: 'k', spaceId: 'default' });
+    expect(res).toMatchObject({ ok: false, code: 'space_read_only' });
+    expect(res.message).toMatch(/Read-only/);
+  });
+});
+
+describe('mem0', () => {
+  it('authenticates with Token, not Bearer', async () => {
+    const spy = mockFetch(200, { event_id: 'evt_1' });
+    await push('mem0', capture, { apiKey: 'm0-x', userId: 'u1' });
+    expect(sentHeaders(spy).Authorization).toBe('Token m0-x');
+  });
+
+  it('posts to the v3 add endpoint with a user_id', async () => {
+    const spy = mockFetch(200, { event_id: 'evt_1' });
+    await push('mem0', capture, { apiKey: 'k', userId: 'u1' });
+
+    expect(spy.mock.calls[0][0]).toBe('https://api.mem0.ai/v3/memories/add/');
+    expect(sentBody(spy).user_id).toBe('u1');
+    expect(sentBody(spy).messages[0].content).toContain('The distilled summary.');
+  });
+
+  it('treats an event_id as acceptance, not storage', async () => {
+    mockFetch(200, { event_id: 'evt_1' });
+    const res = await push('mem0', capture, { apiKey: 'k', userId: 'u1' });
+    expect(res.state).toBe('queued');
+  });
+});
+
+describe('supermemory', () => {
+  it('keys the document on the page url so re-remembering updates it', async () => {
+    const spy = mockFetch(200, { id: 'doc_1', status: 'queued' });
+    await push('supermemory', capture, { apiKey: 'k' });
+    expect(sentBody(spy).customId).toBe('magpie:https://example.com/a');
+  });
+
+  it('omits containerTags entirely when none is set', async () => {
+    const spy = mockFetch(200, { id: 'doc_1' });
+    await push('supermemory', capture, { apiKey: 'k', containerTag: '' });
+    expect(sentBody(spy)).not.toHaveProperty('containerTags');
+  });
+
+  it('reports a finished document as stored', async () => {
+    mockFetch(200, { id: 'doc_1', status: 'done' });
+    const res = await push('supermemory', capture, { apiKey: 'k' });
+    expect(res).toMatchObject({ ok: true, id: 'doc_1', state: 'stored' });
+  });
+});

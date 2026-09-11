@@ -1,0 +1,28 @@
+{
+  "name": "magpie",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Remember any page into your memory layer, distilled on-device.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "vendor:wasm": "node scripts/fetch-wasm.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:remote": "node scripts/check-no-remote-code.mjs",
+    "test:e2e": "node test/integration/run.mjs",
+    "spike": "node spikes/phase0/run-spike.mjs",
+    "verify": "npm run build && npm run check:remote && npm test && npm run test:e2e",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.79",
+    "@mozilla/readability": "^0.6.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "vitest": "^3.2.4"
+  }
+}
