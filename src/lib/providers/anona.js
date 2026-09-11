@@ -4,6 +4,9 @@ export const anona = {
   id: 'anona',
   label: 'Anona Memory',
   keyPlaceholder: 'anona_live_...',
+  // MAX_CONTENT_CHARS on the gateway's write models. Past this the API answers
+  // 422 naming the field, which reads to a reader as "it just failed".
+  maxContentChars: 100_000,
   fields: [
     { key: 'apiKey', label: 'API key', type: 'password', placeholder: 'anona_live_...', required: true },
     {

@@ -264,3 +264,41 @@ describe('mem0 user listing', () => {
     expect(res.message).toMatch(/Invalid token/);
   });
 });
+
+
+describe('content that is too long to send whole', () => {
+  const config = { apiKey: 'k', spaceId: 'default' };
+
+  it('refuses before the API does, and says the real numbers', async () => {
+    const spy = mockFetch(201, {});
+    const res = await push('anona', { ...capture, content: 'x'.repeat(100_001), mode: 'raw' }, config);
+
+    expect(res).toMatchObject({ ok: false, code: 'content_too_long' });
+    // Compared through the same formatter: number grouping follows the reader's
+    // locale, and this machine runs en-IN, where 100001 is "1,00,001".
+    expect(res.message).toContain((100_001).toLocaleString());
+    expect(res.message).toContain((100_000).toLocaleString());
+    // Sending it would spend the request to be told 422.
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('offers distilling as the way out, since a summary is always short', async () => {
+    mockFetch(201, {});
+    const res = await push('anona', { ...capture, content: 'x'.repeat(100_001), mode: 'raw' }, config);
+    expect(res.recover).toBe('distill');
+  });
+
+  it('lets exactly the limit through', async () => {
+    const spy = mockFetch(201, { job_id: 'j' });
+    const res = await push('anona', { ...capture, content: 'x'.repeat(100_000), mode: 'raw' }, config);
+    expect(res.ok).toBe(true);
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('does not invent a ceiling for providers that never published one', async () => {
+    const spy = mockFetch(200, { id: 'doc_1' });
+    const res = await push('supermemory', { ...capture, content: 'x'.repeat(500_000) }, { apiKey: 'k' });
+    expect(res.ok).toBe(true);
+    expect(spy).toHaveBeenCalled();
+  });
+});

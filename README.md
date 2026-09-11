@@ -12,6 +12,33 @@ Works with [Anona Memory](https://anonalabs.com), [Mem0](https://mem0.ai) and
 
 ## What actually leaves your computer
 
+Exactly one request, to the memory layer you configured. In distill mode:
+
+```http
+POST https://api.anonalabs.com/v1/record
+Authorization: Bearer anona_live_…
+
+{
+  "space_id": "reading",
+  "content": "The chapter compares storage engines built on log-structured merge
+               trees against those built on B-trees. LSM-trees write sequentially
+               and compact in the background; B-trees update pages in place.",
+  "metadata": {
+    "url": "https://example.com/ddia/ch3",
+    "title": "Designing Data-Intensive Applications — Chapter 3",
+    "captured_at": "2026-09-11T19:40:00.000Z",
+    "source": "magpie",
+    "mode": "distill"
+  },
+  "tags": ["magpie"],
+  "async": true
+}
+```
+
+`content` is the whole payload: in distill mode the summary the local model
+wrote, in raw mode the extracted article text. The rest is the page's own
+identity. Nothing else is collected and nothing else is sent.
+
 magpie has two modes and they differ on exactly this point. It says which one
 you are in before you press the button, and it never switches for you.
 
@@ -70,10 +97,20 @@ popup at all; the badge (`…` → `✓`) is the whole interface for that path. 
 the popup mid-capture and it attaches to what is already running. The same is
 true of the optional in-page button.
 
-**Everything is chunked.** Both models have a 4096-token context, so a normal
-article does not fit in one pass. magpie splits on headings and paragraphs, never
-mid-sentence, summarises each part, and folds the parts — repeatedly, if it has
-to — until one summary remains.
+**Everything is chunked.** Both models have a 4096-token context. After reserving
+150 tokens for the prompt, 350 for the answer and a little slack, an article gets
+**3,500 tokens — about 14,000 characters — per call**, so a normal article does
+not fit in one pass:
+
+| | extracted | chunks | model calls |
+|---|---|---|---|
+| short post | 4,400 chars | 1 | 1 |
+| long article | 27,500 chars | 2 | 3 |
+| book chapter | 82,600 chars | 6 | 7 |
+
+magpie splits on headings and paragraphs, never mid-sentence, summarises each
+part in 2-3 sentences, then folds the parts into one 4-6 sentence summary —
+repeating that fold if the parts are themselves too long to fit.
 
 **The model libraries are inside the extension.** WebLLM fetches its compiled
 `.wasm` kernels from a CDN by default, and Chrome counts a remotely-fetched

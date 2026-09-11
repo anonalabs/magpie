@@ -61,6 +61,21 @@ export async function push(providerId, capture, config) {
     return { ok: false, code: 'not_configured', message: `${provider.label} needs: ${missing.join(', ')}.` };
   }
 
+  // Checked here rather than at the API, which answers a 422 that reads as an
+  // unexplained failure. Only reachable in raw mode: a distilled summary is a
+  // few hundred characters and never comes near any of these ceilings.
+  if (provider.maxContentChars && capture.content.length > provider.maxContentChars) {
+    return {
+      ok: false,
+      code: 'content_too_long',
+      message: `This page is too long to send whole — ${capture.content.length.toLocaleString()} characters, `
+        + `and ${provider.label} accepts ${provider.maxContentChars.toLocaleString()}.`,
+      recover: 'distill',
+      provider: provider.id,
+      providerLabel: provider.label,
+    };
+  }
+
   const req = provider.buildRequest(capture, config);
 
   let res;

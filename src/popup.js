@@ -94,6 +94,7 @@ const RECOVERIES = {
   raw: { label: 'Send the page text instead', run: async () => { await saveSettings({ mode: 'raw' }); start(); } },
   smaller_model: { label: 'Use the smaller model', run: async () => { await saveSettings({ modelSize: 'small' }); start(); } },
   not_configured: { label: 'Open settings', run: () => openSettings(true) },
+  distill: { label: 'Summarise it on this device', run: async () => { await saveSettings({ mode: 'distill' }); start(); } },
 };
 
 // ----------------------------------------------------------------- actions --
