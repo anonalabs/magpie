@@ -83,6 +83,17 @@ export async function startCapture(tabId, mode) {
   // skipped entirely rather than attempted and reported as an unreadable page.
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   if (tab?.url && looksLikePdf(tab.url)) {
+    try {
+      return await dispatchPdf(tabId, tab, settings, effectiveMode);
+    } catch (err) {
+      return fail(tabId, { code: 'pdf_dispatch_failed', message: String(err?.message ?? err) });
+    }
+  }
+
+  return startArticleCapture(tabId, settings, effectiveMode);
+}
+
+async function dispatchPdf(tabId, tab, settings, effectiveMode) {
     await ensureOffscreen();
     return toOffscreen(MSG.RUN_PDF, {
       job: {
@@ -97,8 +108,9 @@ export async function startCapture(tabId, mode) {
       },
       model: MODELS[settings.modelSize] ?? MODELS.small,
     });
-  }
+}
 
+async function startArticleCapture(tabId, settings, effectiveMode) {
   let article;
   try {
     article = await extractActiveTab(tabId);
@@ -130,13 +142,18 @@ export async function startCapture(tabId, mode) {
     return jobFromRecord(await commit({ ...base, content: article.text, kind: 'article text' }));
   }
 
-  await ensureOffscreen();
-  // The key is relayed in because offscreen documents support only
-  // chrome.runtime — chrome.storage is not available to them.
-  return toOffscreen(MSG.RUN_DISTILL, {
-    job: { ...base, text: article.text },
-    model: MODELS[settings.modelSize] ?? MODELS.small,
-  });
+  // Wrapped, because anything thrown here used to escape as a bare
+  // {ok:false,...} with no state, which the popup could only render as
+  // "Something went wrong" with the reason discarded.
+  try {
+    await ensureOffscreen();
+    return await toOffscreen(MSG.RUN_DISTILL, {
+      job: { ...base, text: article.text },
+      model: MODELS[settings.modelSize] ?? MODELS.small,
+    });
+  } catch (err) {
+    return fail(tabId, { code: 'engine_unreachable', message: String(err?.message ?? err) });
+  }
 }
 
 function describeDestination(settings) {

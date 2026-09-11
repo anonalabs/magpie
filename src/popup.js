@@ -31,6 +31,12 @@ function rail(mode, fraction = 0) {
 function renderJob(job) {
   if (!job) { rail('off'); return show('state-idle'); }
 
+  // A failure thrown anywhere in the worker comes back as {ok:false, code,
+  // message} with no `state` at all. Without this it fell through to the error
+  // branch, which reads job.result — undefined — and printed "Something went
+  // wrong" while holding the actual reason in its hand.
+  if (job.ok === false && !job.state) job = { state: 'error', tabId, result: job };
+
   switch (job.state) {
     case 'starting':
     case 'loading':

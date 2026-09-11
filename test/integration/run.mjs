@@ -391,6 +391,21 @@ async function main() {
   check('and nothing past the cap was read',
     longBody?.content?.includes('marker-40-end') && !longBody?.content?.includes('marker-41-end'), 'capped');
 
+  // ---- a shapeless failure must still say what went wrong -----------------
+  // Anything thrown in the worker comes back as {ok:false, code, message} with
+  // no `state`. The popup rendered that as a bare "Something went wrong" while
+  // holding the reason, which is how three rounds of a real bug went undiagnosed.
+  const shapeless = await evalIn(cdp, `
+    // A tab id that does not exist: the worker throws rather than returning a job.
+    const answer = await chrome.runtime.sendMessage({
+      target: 'background', type: 'START_CAPTURE', tabId: 999999 });
+    return answer;`);
+
+  check('a thrown failure carries a message, not just a shape',
+    Boolean(shapeless?.result?.message ?? shapeless?.message), JSON.stringify(shapeless).slice(0, 120));
+  check('and names a code that can be reported',
+    Boolean(shapeless?.result?.code ?? shapeless?.code), shapeless?.result?.code ?? shapeless?.code ?? 'none');
+
   // ---- a page with nothing to read -------------------------------------
   const { targetId: emptyTab } = await browser.send('Target.createTarget', { url: `http://127.0.0.1:${PORT_WEB}/empty` });
   await sleep(1000);
