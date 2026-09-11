@@ -161,14 +161,24 @@ async function drain() {
   await scheduleDrain();
 }
 
-/** One alarm for the soonest due record. Alarms outlive the worker; timers do not. */
+/**
+ * One alarm for the soonest due record. Alarms outlive the worker; timers do not.
+ *
+ * Guarded, because chrome.alarms is undefined without its permission — and a
+ * permission added in a new build is invisible to Chrome until the extension is
+ * reloaded, not merely rebuilt. Calling it unguarded at the top of the worker
+ * threw during startup, which killed the whole worker and made every capture
+ * fail with no useful message. A scheduling API that is missing should cost
+ * scheduled retries, not the extension.
+ */
 async function scheduleDrain() {
+  if (!chrome.alarms) return;
   const at = await captures.nextDueAt();
   await chrome.alarms.clear(DRAIN_ALARM);
   if (at) await chrome.alarms.create(DRAIN_ALARM, { when: at });
 }
 
-chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === DRAIN_ALARM) drain(); });
+chrome.alarms?.onAlarm.addListener((alarm) => { if (alarm.name === DRAIN_ALARM) drain(); });
 chrome.runtime.onStartup.addListener(drain);
 
 /** A capture record in the shape the popup already renders. */

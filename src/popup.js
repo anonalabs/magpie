@@ -85,7 +85,11 @@ function renderJob(job) {
       rail('off');
       show('state-error');
       const result = job.result ?? {};
-      $('error-detail').textContent = result.message ?? 'Something went wrong.';
+      // The code rides along because "Could not remember this" on its own is not
+      // something anyone can act on, or report.
+      $('error-detail').textContent = result.message
+        ? (result.code ? `${result.message} (${result.code})` : result.message)
+        : `Something went wrong${result.code ? ` (${result.code})` : ''}.`;
       const recover = RECOVERIES[result.recover ?? result.code];
       $('recover').hidden = !recover;
       if (recover) {
