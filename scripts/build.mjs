@@ -21,7 +21,9 @@ const manifest = {
   minimum_chrome_version: '116',
   // activeTab, granted by clicking the action or pressing the shortcut, is why
   // there is no host permission for the pages you read.
-  permissions: ['activeTab', 'scripting', 'storage', 'offscreen', 'unlimitedStorage'],
+  // alarms, because a retry has to survive the service worker being killed and
+  // a timer inside it would not.
+  permissions: ['activeTab', 'scripting', 'storage', 'offscreen', 'unlimitedStorage', 'alarms'],
   host_permissions: [
     ...PROVIDER_ORIGINS,
     // Model weights. Data, not code, so fetching them remotely is allowed;

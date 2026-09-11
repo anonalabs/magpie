@@ -8,10 +8,12 @@
 
 import { MSG, TO_BACKGROUND, respondAsync, toOffscreen } from './lib/messages.js';
 import { loadSettings, providerConfig } from './lib/settings.js';
-import { push } from './lib/providers/registry.js';
+import { push, getProvider } from './lib/providers/registry.js';
 import { MODELS } from './lib/models.js';
+import * as captures from './lib/captures.js';
+import { settle } from './lib/queue.js';
 
-const RAW_STATE_KEY = (tabId) => `raw:${tabId}`;
+const DRAIN_ALARM = 'magpie-drain';
 const IN_PAGE_SCRIPT_ID = 'magpie-in-page';
 // Web pages only. <all_urls> would also cover file:// and ftp://, which the
 // button never runs on, and would make the permission prompt larger for nothing.
@@ -66,7 +68,6 @@ async function extractActiveTab(tabId) {
 export async function startCapture(tabId) {
   badge(tabId, 'working');
   const settings = await loadSettings();
-  const config = providerConfig(settings);
 
   let article;
   try {
@@ -91,21 +92,12 @@ export async function startCapture(tabId) {
     capturedAt: new Date().toISOString(),
     mode: settings.mode,
     providerId: settings.providerId,
+    destination: describeDestination(settings),
   };
 
   if (settings.mode === 'raw') {
-    // No model, no offscreen document, one short fetch — this stays in the worker.
-    await setRawState(tabId, { ...base, state: 'writing' });
-    const result = await push(settings.providerId, { ...base, content: article.text }, config);
-    const finished = {
-      ...base,
-      state: result.ok ? 'remembered' : 'error',
-      result,
-      stored: { chars: article.text.length, kind: 'article text' },
-    };
-    await setRawState(tabId, finished);
-    badge(tabId, result.ok ? 'ok' : 'error');
-    return finished;
+    // No model and no offscreen document: straight into the queue.
+    return jobFromRecord(await commit({ ...base, content: article.text, kind: 'article text' }));
   }
 
   await ensureOffscreen();
@@ -114,20 +106,96 @@ export async function startCapture(tabId) {
   return toOffscreen(MSG.RUN_DISTILL, {
     job: { ...base, text: article.text },
     model: MODELS[settings.modelSize] ?? MODELS.small,
-    providerConfig: config,
   });
 }
 
-async function fail(tabId, error) {
-  const state = { tabId, state: 'error', result: { ok: false, ...error } };
-  await setRawState(tabId, state);
-  badge(tabId, 'error');
-  return state;
+function describeDestination(settings) {
+  const provider = getProvider(settings.providerId);
+  const space = settings.providers?.[settings.providerId]?.spaceId;
+  return space ? `${provider.label} · ${space}` : provider.label;
 }
 
-// Session storage, not local: a capture receipt is worth keeping while the
-// browser is open and worth forgetting when it closes.
-const setRawState = (tabId, state) => chrome.storage.session.set({ [RAW_STATE_KEY(tabId)]: state });
+/**
+ * The durability point. The capture is on disk before any network call, so a
+ * failed write is a retry rather than lost work.
+ */
+async function commit(record) {
+  const stored = await captures.enqueue(record);
+  badge(record.tabId, 'working');
+  const settled = await send(stored);
+  await scheduleDrain();
+  return settled;
+}
+
+async function send(record) {
+  const settings = await loadSettings();
+  const config = settings.providers?.[record.providerId] ?? {};
+  const result = await push(record.providerId, {
+    title: record.title,
+    url: record.url,
+    content: record.content,
+    capturedAt: record.capturedAt,
+    mode: record.mode,
+  }, config);
+
+  const settled = settle(record, result);
+  await captures.replace(settled);
+
+  if (record.tabId != null) {
+    badge(record.tabId, settled.state === 'done' ? 'ok' : settled.state === 'blocked' ? 'error' : 'working');
+  }
+  broadcast(settled);
+  return settled;
+}
+
+let draining = false;
+
+async function drain() {
+  if (draining) return;
+  draining = true;
+  try {
+    for (const record of await captures.due()) await send(record);
+  } finally {
+    draining = false;
+  }
+  await scheduleDrain();
+}
+
+/** One alarm for the soonest due record. Alarms outlive the worker; timers do not. */
+async function scheduleDrain() {
+  const at = await captures.nextDueAt();
+  await chrome.alarms.clear(DRAIN_ALARM);
+  if (at) await chrome.alarms.create(DRAIN_ALARM, { when: at });
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === DRAIN_ALARM) drain(); });
+chrome.runtime.onStartup.addListener(drain);
+
+/** A capture record in the shape the popup already renders. */
+function jobFromRecord(record) {
+  if (!record) return null;
+  const state = record.state === 'done' ? 'remembered' : record.state === 'blocked' ? 'error' : 'queued';
+  return {
+    ...record,
+    state,
+    stage: { remembered: 'Remembered', error: 'Could not save', queued: 'Saved here, will retry' }[state],
+    result: record.state === 'done'
+      ? { ok: true, providerLabel: record.destination, state: 'queued' }
+      : { ok: false, ...(record.lastError ?? {}) },
+    stored: record.chars ? { chars: record.chars, kind: record.kind ?? 'summary' } : null,
+  };
+}
+
+const broadcast = (record) =>
+  chrome.runtime.sendMessage({ type: 'JOB_UPDATE', job: jobFromRecord(record) }).catch(() => {});
+
+async function fail(tabId, error) {
+  const state = { tabId, state: 'error', result: { ok: false, ...error } };
+  badge(tabId, 'error');
+  broadcast(null);
+  chrome.runtime.sendMessage({ type: 'JOB_UPDATE', job: state }).catch(() => {});
+  return state;
+}
 
 async function captureState(tabId) {
   const contexts = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
@@ -135,7 +203,8 @@ async function captureState(tabId) {
     const job = await toOffscreen(MSG.GET_JOB, { tabId });
     if (job) return job;
   }
-  return (await chrome.storage.session.get(RAW_STATE_KEY(tabId)))[RAW_STATE_KEY(tabId)] ?? null;
+  const record = (await captures.readAll()).find((r) => r.tabId === tabId);
+  return jobFromRecord(record);
 }
 
 // ---------------------------------------------------- in-page button ----
@@ -251,6 +320,20 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
       return respondAsync(syncInPage, respond);
     case MSG.IN_PAGE_STATUS:
       return respondAsync(inPageStatus, respond);
+    case MSG.ENQUEUE:
+      // Sent by the offscreen document once a summary exists. It cannot reach
+      // chrome.storage itself, and this message is what wakes the worker.
+      return respondAsync(() => commit(msg.record), respond);
+    case MSG.LIST_CAPTURES:
+      return respondAsync(captures.readAll, respond);
+    case MSG.RETRY_CAPTURE:
+      return respondAsync(async () => {
+        const record = (await captures.readAll()).find((r) => r.id === msg.id);
+        if (!record) return null;
+        return send({ ...record, state: 'pending', attempts: 0, nextAttemptAt: Date.now() });
+      }, respond);
+    case MSG.DELETE_CAPTURE:
+      return respondAsync(async () => { await captures.remove(msg.id); return { ok: true }; }, respond);
     case MSG.GET_CAPTURE_STATE:
       return respondAsync(() => captureState(msg.tabId), respond);
     case MSG.PRELOAD_MODEL:

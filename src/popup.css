@@ -410,4 +410,94 @@ body.sheet .primary { padding: 12px; }
   body.sheet { padding-inline: 20px; }
 }
 
+/* --------------------------------------------------------------- history -- */
+
+.head-actions { display: flex; align-items: center; gap: 6px; }
+
+.icon-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 26px; height: 26px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: color .15s var(--ease), border-color .15s var(--ease);
+}
+.icon-button svg { width: 15px; height: 15px; }
+.icon-button:hover { color: var(--ink); border-color: var(--line-strong); }
+.icon-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Something needs attention. A count would be precision nobody acts on. */
+.pip {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 6px; height: 6px;
+  border-radius: 100px;
+  background: var(--danger);
+}
+
+.status.warn { background: var(--sunken); color: var(--ink-soft); }
+.status.warn .tick { background: var(--ink-soft); color: var(--bg); }
+
+.capture {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.capture:last-child { border-bottom: 0; }
+
+.capture-dot {
+  width: 6px; height: 6px;
+  margin-top: 6px;
+  flex: none;
+  border-radius: 100px;
+  background: var(--muted);
+}
+.capture-dot.done { background: var(--accent); }
+.capture-dot.blocked { background: var(--danger); }
+
+.capture-body { flex: 1; min-width: 0; }
+.capture-title {
+  font-size: 12px;
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.capture-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.capture-meta.bad { color: var(--danger); white-space: normal; }
+
+.capture-actions { display: flex; gap: 4px; flex: none; }
+.capture-actions button {
+  padding: 3px 7px;
+  font-size: 11px;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.capture-actions button:hover { color: var(--ink); border-color: var(--line-strong); }
+
+.group-head {
+  margin: 14px 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.group-head:first-child { margin-top: 0; }
+
+.empty { padding: 28px 0; text-align: center; color: var(--muted); font-size: 12px; }
+.empty kbd {
+  font: inherit; font-size: 10px;
+  border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 4px; padding: 1px 4px;
+}
+
 [hidden] { display: none !important; }

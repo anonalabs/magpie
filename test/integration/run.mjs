@@ -45,6 +45,9 @@ const SPACES = {
   total: 3,
 };
 
+// Set by the durability tests to make the provider fail on demand.
+let failWith = null;
+
 const api = createHttps(
   { key: readFileSync(join(work, 'key.pem')), cert: readFileSync(join(work, 'cert.pem')) },
   (req, res) => {
@@ -55,6 +58,10 @@ const api = createHttps(
       if (req.method === 'GET' && req.url === '/v1/spaces') {
         res.writeHead(200, { 'content-type': 'application/json' });
         return res.end(JSON.stringify(SPACES));
+      }
+      if (failWith) {
+        res.writeHead(failWith, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ error: { code: 'test_failure', message: `forced ${failWith}` } }));
       }
       res.writeHead(201, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ job_id: 'job_test_1', status: 'processing' }));
@@ -183,8 +190,9 @@ async function main() {
     return await chrome.runtime.sendMessage({ target: 'background', type: 'START_CAPTURE', tabId: ${tabId} });`);
 
   check('raw capture reports remembered', raw?.state === 'remembered', `state "${raw?.state}" ${raw?.result?.message ?? ''}`);
-  check('receipt says which provider accepted it', raw?.result?.state === 'queued' && raw?.result?.providerLabel === 'Anona Memory',
-    `${raw?.result?.providerLabel} / ${raw?.result?.state}`);
+  check('the receipt names where it went, space included',
+    raw?.result?.providerLabel === 'Anona Memory · magpie-test',
+    String(raw?.result?.providerLabel));
 
   const sent = received.filter((r) => r.url === '/v1/record').at(-1);
   check('request reached the provider', Boolean(sent), sent ? `${sent.method} ${sent.url}` : 'nothing arrived');
@@ -202,6 +210,51 @@ async function main() {
       sent.body.metadata?.title === 'The Test Article' && sent.body.metadata?.url?.startsWith('http://127.0.0.1'),
       sent.body.metadata?.title);
   }
+
+  // ---- durability: a failed write is kept, not lost ----------------------
+  const capture = async () => evalIn(cdp, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'START_CAPTURE', tabId: ${tabId} });`);
+  const records = async () => evalIn(cdp, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'LIST_CAPTURES' });`);
+
+  failWith = 503;
+  const queuedCapture = await capture();
+  check('a provider outage does not report success', queuedCapture?.state === 'queued', queuedCapture?.state);
+
+  let kept = (await records()).find((r) => r.url.startsWith('http://127.0.0.1'));
+  check('the capture is on disk, not lost', Boolean(kept), kept ? kept.state : 'no record');
+  check('and it kept the content it still has to send',
+    typeof kept?.content === 'string' && kept.content.length > 1000, `${kept?.content?.length ?? 0} chars`);
+  check('with a retry scheduled', kept?.state === 'pending' && kept?.attempts === 1 && kept?.nextAttemptAt > Date.now(),
+    `${kept?.state}, attempt ${kept?.attempts}`);
+
+  // Now the provider recovers.
+  failWith = null;
+  await evalIn(cdp, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'RETRY_CAPTURE', id: ${JSON.stringify(kept?.id)} });`);
+
+  kept = (await records()).find((r) => r.id === kept.id);
+  check('a retry lands it once the provider is back', kept?.state === 'done', kept?.state);
+  check('and the content is dropped once it has landed',
+    kept?.content === undefined, kept?.content === undefined ? 'dropped' : 'still stored');
+
+  // ---- durability: a terminal failure stops ------------------------------
+  failWith = 401;
+  const before401 = received.filter((r) => r.url === '/v1/record').length;
+  const rejected = await capture();
+  const after401 = received.filter((r) => r.url === '/v1/record').length;
+
+  const blocked = (await records()).find((r) => r.state === 'blocked');
+  check('a rejected key blocks instead of queueing', Boolean(blocked), rejected?.state ?? 'none');
+  check('and is not retried even once', after401 - before401 === 1, `${after401 - before401} request(s)`);
+  check('the reason is kept so it can be acted on', Boolean(blocked?.lastError?.message), blocked?.lastError?.message);
+
+  // Clean up so later sections see a normal provider.
+  failWith = null;
+  await evalIn(cdp, `
+    const rs = await chrome.runtime.sendMessage({ target: 'background', type: 'LIST_CAPTURES' });
+    for (const r of rs) await chrome.runtime.sendMessage({ target: 'background', type: 'DELETE_CAPTURE', id: r.id });
+    return true;`);
 
   // ---- a page with nothing to read -------------------------------------
   const { targetId: emptyTab } = await browser.send('Target.createTarget', { url: `http://127.0.0.1:${PORT_WEB}/empty` });

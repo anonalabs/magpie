@@ -7,9 +7,8 @@
 // host_permissions, exactly as the worker is.
 
 import { CreateMLCEngine } from '@mlc-ai/web-llm';
-import { MSG, TO_OFFSCREEN, respondAsync } from './lib/messages.js';
-import { planSummarisation, reducePlan, estimateTokens } from './lib/chunk.js';
-import { push } from './lib/providers/registry.js';
+import { MSG, TO_OFFSCREEN, respondAsync, toBackground } from './lib/messages.js';
+import { planSummarisation, reducePlan } from './lib/chunk.js';
 import { appConfigFor } from './lib/models.js';
 import { isDeviceLost } from './lib/gpu.js';
 
@@ -158,7 +157,29 @@ function describeLoad(report) {
   return 'Loading the model';
 }
 
-async function runDistill({ job: incoming, model, providerConfig }) {
+/**
+ * Hands a finished summary to the service worker, which owns the queue.
+ *
+ * This document cannot reach chrome.storage, so the message is the only route to
+ * disk — and it is also what wakes a worker that has long since been killed. It
+ * is retried rather than attempted once: dropping it would throw away the whole
+ * point of the capture at the very last step.
+ */
+async function handOff(record, attempts = 4) {
+  let last;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const settled = await toBackground(MSG.ENQUEUE, { record });
+      if (settled) return settled;
+    } catch (err) {
+      last = err;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+  }
+  throw new Error(`Could not save the summary. ${last?.message ?? 'The extension did not respond.'}`);
+}
+
+async function runDistill({ job: incoming, model }) {
   // Pressing the shortcut twice, or the button while the model is still
   // downloading, must attach to the capture already running for this tab rather
   // than start a second one against the same engine.
@@ -235,18 +256,24 @@ async function runDistill({ job: incoming, model, providerConfig }) {
 
     if (!summary) throw new Error('The model returned an empty summary.');
 
-    update(job, { state: 'writing', stage: `Saving to ${job.providerId}`, summary });
+    update(job, { state: 'writing', stage: 'Saving', summary });
 
-    const result = await push(job.providerId, {
-      title: job.title, url: job.url, content: summary, capturedAt: job.capturedAt, mode: 'distill',
-    }, providerConfig);
-
-    return update(job, {
-      state: result.ok ? 'remembered' : 'error',
-      stage: result.ok ? 'Remembered' : 'Could not save',
-      result,
-      stored: { chars: summary.length, tokens: estimateTokens(summary), kind: 'summary' },
+    const settled = await handOff({
+      tabId: job.tabId,
+      title: job.title,
+      url: job.url,
+      capturedAt: job.capturedAt,
+      mode: 'distill',
+      providerId: job.providerId,
+      destination: job.destination,
+      content: summary,
+      chars: summary.length,
+      kind: 'summary',
     });
+
+    // The worker answers in the shape the popup already renders; the summary
+    // rides along so the receipt can show what was stored.
+    return update(job, { ...settled, summary });
   } catch (err) {
     if (isDeviceLost(err)) discardEngine();
     return update(job, { state: 'error', stage: 'Failed', result: { ok: false, ...classify(err, model) } });

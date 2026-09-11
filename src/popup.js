@@ -5,12 +5,15 @@ import { MSG, toBackground } from './lib/messages.js';
 import { loadSettings, saveSettings, providerConfig } from './lib/settings.js';
 import { PROVIDERS, getProvider, missingFields, loadFieldOptions } from './lib/providers/registry.js';
 import { MODELS } from './lib/models.js';
+import { captureKey } from './lib/queue.js';
 
 const $ = (id) => document.getElementById(id);
-const STATES = ['state-idle', 'state-working', 'state-done', 'state-error'];
+const STATES = ['state-idle', 'state-working', 'state-queued', 'state-done', 'state-error'];
+const VIEWS = { main: 'view-main', settings: 'view-settings', history: 'view-history' };
 const show = (id) => { for (const s of STATES) $(s).hidden = s !== id; };
 
 let tabId = null;
+let tabUrl = '';
 let settings = null;
 
 // ------------------------------------------------------------------ rail ----
@@ -47,6 +50,17 @@ function renderJob(job) {
         $('stage-count').textContent = '';
         rail('indeterminate');
       }
+      return;
+    }
+
+    case 'queued': {
+      rail('off');
+      show('state-queued');
+      // Not a failure: the capture is on disk and will go out on its own. Saying
+      // "error" here would be wrong and would invite pressing Remember again.
+      $('queued-detail').textContent = job.result?.message
+        ? `${job.result.message} magpie will keep trying.`
+        : 'Saved here and waiting to reach your memory layer. magpie will keep trying.';
       return;
     }
 
@@ -107,19 +121,27 @@ async function start() {
   renderJob(await toBackground(MSG.START_CAPTURE, { tabId }));
 }
 
-function openSettings(open) {
-  $('view-main').hidden = open;
-  $('view-settings').hidden = !open;
-  $('destination').classList.toggle('back', open);
-  $('destination').classList.toggle('unset', !open && !isConfigured());
-  $('destination').title = open ? 'Back' : 'Settings';
-  $('destination-text').textContent = open ? 'Back' : destinationLabel();
-  // Coming back from a long settings view at its old scroll position looks like
-  // nothing happened.
+let view = 'main';
+
+function showView(next) {
+  view = next;
+  for (const [name, id] of Object.entries(VIEWS)) $(id).hidden = name !== next;
+
+  const away = next !== 'main';
+  $('destination').classList.toggle('back', away);
+  $('destination').classList.toggle('unset', !away && !isConfigured());
+  $('destination').title = away ? 'Back' : 'Settings';
+  $('destination-text').textContent = away ? 'Back' : destinationLabel();
+  $('open-history').hidden = away;
+
+  // Coming back from a long view at its old scroll position looks like nothing
+  // happened.
   window.scrollTo(0, 0);
+  if (next === 'history') renderHistory();
 }
 
-const settingsOpen = () => !$('view-settings').hidden;
+const openSettings = (open) => showView(open ? 'settings' : 'main');
+const settingsOpen = () => view === 'settings';
 
 const isConfigured = () =>
   Boolean(settings) && missingFields(getProvider(settings.providerId), providerConfig(settings)).length === 0;
@@ -336,7 +358,7 @@ async function save() {
     $('save-note').textContent = '';
     return openSettings(false);
   }
-  $('save-note').textContent = `Saved. ${provider.label} still needs ${missing.join(' and ').toLowerCase()}.`;
+  $('save-note').textContent = `Saved. ${provider.label} still needs ${joinFields(missing)}.`;
 }
 
 // --------------------------------------------------------- in-page button ---
@@ -387,6 +409,112 @@ async function toggleInPage(event) {
   renderInPageToggle();
 }
 
+// ----------------------------------------------------------------- history --
+const GROUPS = [
+  ['blocked', 'Needs you'],
+  ['pending', 'Waiting to send'],
+  ['done', 'Remembered'],
+];
+
+function ago(iso) {
+  const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 90) return 'just now';
+  const units = [[60, 'minute'], [60, 'hour'], [24, 'day'], [7, 'week']];
+  let value = seconds;
+  let label = 'second';
+  for (const [step, name] of units) {
+    if (value < step) break;
+    value /= step;
+    label = name;
+  }
+  const rounded = Math.round(value);
+  return `${rounded} ${label}${rounded === 1 ? '' : 's'} ago`;
+}
+
+function captureRow(record) {
+  const row = document.createElement('div');
+  row.className = 'capture';
+
+  const dot = document.createElement('span');
+  dot.className = `capture-dot ${record.state}`;
+
+  const body = document.createElement('div');
+  body.className = 'capture-body';
+
+  const title = document.createElement('div');
+  title.className = 'capture-title';
+  title.textContent = record.title || record.url;
+
+  const meta = document.createElement('div');
+  meta.className = 'capture-meta';
+  if (record.state === 'blocked') {
+    meta.classList.add('bad');
+    meta.textContent = record.lastError?.message ?? 'Could not be saved.';
+  } else if (record.state === 'pending') {
+    meta.textContent = record.nextAttemptAt && record.attempts
+      ? `Attempt ${record.attempts + 1} ${whenNext(record.nextAttemptAt)} · ${record.destination ?? ''}`
+      : `Sending · ${record.destination ?? ''}`;
+  } else {
+    meta.textContent = `${ago(record.capturedAt)} · ${record.destination ?? ''}`;
+  }
+
+  body.append(title, meta);
+
+  const actions = document.createElement('div');
+  actions.className = 'capture-actions';
+  if (record.state !== 'done') {
+    const retry = document.createElement('button');
+    retry.textContent = 'Retry';
+    retry.onclick = async () => { await toBackground(MSG.RETRY_CAPTURE, { id: record.id }); renderHistory(); };
+    actions.append(retry);
+  }
+  const remove = document.createElement('button');
+  remove.textContent = 'Delete';
+  remove.onclick = async () => { await toBackground(MSG.DELETE_CAPTURE, { id: record.id }); renderHistory(); };
+  actions.append(remove);
+
+  row.append(dot, body, actions);
+  return row;
+}
+
+function whenNext(at) {
+  const minutes = Math.round((at - Date.now()) / 60000);
+  if (minutes <= 0) return 'due now';
+  if (minutes < 60) return `in ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return `in ${hours} hour${hours === 1 ? '' : 's'}`;
+}
+
+async function renderHistory() {
+  const records = (await toBackground(MSG.LIST_CAPTURES).catch(() => [])) ?? [];
+  const list = $('history-list');
+  list.replaceChildren();
+  $('history-empty').hidden = records.length > 0;
+
+  for (const [state, heading] of GROUPS) {
+    const group = records.filter((r) => r.state === state);
+    if (!group.length) continue;
+    const head = document.createElement('h2');
+    head.className = 'group-head';
+    head.textContent = heading;
+    list.append(head, ...group.map(captureRow));
+  }
+}
+
+/** A dot on the history button when something is blocked, and nothing otherwise. */
+async function renderHistoryPip() {
+  const records = (await toBackground(MSG.LIST_CAPTURES).catch(() => [])) ?? [];
+  $('history-pip').hidden = !records.some((r) => r.state === 'blocked');
+  return records;
+}
+
+/**
+ * Field labels read as prose here, but lowercasing them wholesale turns "API
+ * key" into "api key". Only a label that is plain words gets lowercased.
+ */
+const joinFields = (labels) =>
+  labels.map((label) => (/^[A-Z][a-z]+(\s[a-z]+)*$/.test(label) ? label.toLowerCase() : label)).join(' and ');
+
 // -------------------------------------------------------------------- idle --
 function renderIdle() {
   const provider = getProvider(settings.providerId);
@@ -400,8 +528,21 @@ function renderIdle() {
 
   $('remember').disabled = missing.length > 0;
   $('idle-hint').textContent = missing.length
-    ? `Add your ${provider.label} ${missing.join(' and ').toLowerCase()} to start.`
+    ? `Add your ${provider.label} ${joinFields(missing)} to start.`
     : MODE_NOTES[settings.mode];
+}
+
+/**
+ * Informs, never blocks. Re-remembering a page that has changed is legitimate,
+ * and one provider already updates in place rather than duplicating.
+ */
+function showAlreadyRemembered(records) {
+  const url = (() => { try { return new URL(tabUrl).toString(); } catch { return null; } })();
+  if (!url) return;
+  const key = captureKey(settings.providerId, url);
+  const landed = records.find((r) => r.key === key && r.state === 'done');
+  $('already').hidden = !landed;
+  if (landed) $('already').textContent = `You remembered this ${ago(landed.capturedAt)}.`;
 }
 
 // The shortcut is the primary way in, so the popup shows the one really bound —
@@ -426,14 +567,17 @@ async function renderShortcut() {
   $('provider').onchange = renderProviderFields;
   $('model-size').onchange = renderModelNote;
   $('inpage').onchange = toggleInPage;
-  $('destination').onclick = () => openSettings(!settingsOpen());
-  $('close-settings').onclick = () => openSettings(false);
+  $('destination').onclick = () => showView(view === 'main' ? 'settings' : 'main');
+  $('close-settings').onclick = () => showView('main');
+  $('open-history').onclick = () => showView('history');
+  $('queued-history').onclick = () => showView('history');
   for (const el of document.querySelectorAll('input[name=mode]')) el.onchange = renderModeNote;
 
   settings = await loadSettings();
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   tabId = tab?.id ?? null;
+  tabUrl = tab?.url ?? '';
   $('page-title').textContent = tab?.title ?? 'This page';
   $('page-url').textContent = (() => {
     try { return new URL(tab.url).hostname.replace(/^www\./, ''); } catch { return tab?.url ?? ''; }
@@ -443,6 +587,7 @@ async function renderShortcut() {
   renderIdle();
   renderShortcut();
   renderInPageToggle();
+  showAlreadyRemembered(await renderHistoryPip());
 
   // Reattach to whatever is already running for this tab.
   if (tabId != null) renderJob(await toBackground(MSG.GET_CAPTURE_STATE, { tabId }));

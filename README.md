@@ -97,6 +97,15 @@ popup at all; the badge (`…` → `✓`) is the whole interface for that path. 
 the popup mid-capture and it attaches to what is already running. The same is
 true of the optional in-page button.
 
+**Nothing is lost.** A capture is written to disk before any network call, so an
+unreachable provider, an expired key or an exhausted balance is a retry rather
+than lost work. Retries back off and are scheduled with `chrome.alarms`, which
+outlive the service worker. Failures that will never succeed — a rejected key, a
+body the API refuses — stop immediately instead of hammering; they land in
+**Needs you** in the history view with the reason. A landed capture drops its
+content and keeps only metadata, so magpie can tell you it already saved a page
+without keeping a second copy of everything you have read.
+
 **Everything is chunked.** Both models have a 4096-token context. After reserving
 150 tokens for the prompt, 350 for the answer and a little slack, an article gets
 **3,500 tokens — about 14,000 characters — per call**, so a normal article does
@@ -160,7 +169,7 @@ processing, report it as accepted, not as stored. `parseResponse` returns
 ## Known limits
 
 - Chrome and Edge only. Firefox's MV3 and WebGPU support are not there.
-- One page at a time, the page you are on. No selection capture, no queueing.
+- One page at a time, the page you are on. No selection capture.
 - magpie writes to memory layers. It does not read from them.
 - The floating in-page button is off by default. It needs a content script on
   every page, which is "read and change all your data on all websites" at

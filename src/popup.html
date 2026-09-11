@@ -17,10 +17,18 @@
     <span class="wordmark">magpie</span>
   </span>
 
+  <span class="head-actions">
+  <button class="icon-button" id="open-history" title="What you have remembered" aria-label="History">
+    <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <path d="M2 4h12M2 8h12M2 12h7"/>
+    </svg>
+    <span class="pip" id="history-pip" hidden></span>
+  </button>
   <button class="destination" id="destination" title="Settings">
     <span class="back-arrow" aria-hidden="true">&#8249;</span>
     <span id="destination-text">Not set up</span>
   </button>
+  </span>
 </header>
 
 <div class="rail" id="rail" hidden><div class="rail-fill" id="rail-fill"></div></div>
@@ -37,6 +45,7 @@
       <span>Remember this page</span>
       <kbd id="shortcut-hint">Alt Shift M</kbd>
     </button>
+    <p class="footnote" id="already" hidden></p>
     <p class="footnote" id="idle-hint"></p>
   </section>
 
@@ -47,6 +56,15 @@
       <span class="status-meta" id="stage-count"></span>
     </div>
     <p class="footnote">Close this whenever you like. It keeps going.</p>
+  </section>
+
+  <section id="state-queued" class="state" hidden>
+    <div class="status warn">
+      <span class="tick" aria-hidden="true">&#8635;</span>
+      <span class="status-text">Saved on this device</span>
+    </div>
+    <p class="detail" id="queued-detail"></p>
+    <button class="ghost" id="queued-history">See what is waiting</button>
   </section>
 
   <section id="state-done" class="state" hidden>
@@ -111,6 +129,13 @@
   <button class="primary" id="save"><span>Save</span></button>
   <button class="ghost" id="close-settings">Back</button>
   <p class="footnote" id="save-note"></p>
+</main>
+
+<main id="view-history" hidden>
+  <div id="history-empty" class="empty" hidden>
+    <p>Nothing remembered yet. Press <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>M</kbd> on a page worth keeping.</p>
+  </div>
+  <div id="history-list"></div>
 </main>
 
 <script src="popup.js" type="module"></script>
