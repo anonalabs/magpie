@@ -337,6 +337,29 @@ button { font: inherit; }
 .field { display: block; margin-top: 11px; }
 .field-label { display: block; margin-bottom: 4px; font-size: 11px; color: var(--muted); }
 
+textarea {
+  width: 100%;
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  resize: vertical;
+}
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+textarea::placeholder { color: var(--muted); }
+textarea:disabled { color: var(--muted); background: var(--sunken); }
+
+#compose-open { margin-top: 7px; }
+#compose-cancel { margin-top: 7px; }
+
 input[type="text"], input[type="password"], select {
   width: 100%;
   padding: 8px 9px;

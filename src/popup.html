@@ -45,6 +45,7 @@
       <span>Remember this page</span>
       <kbd id="shortcut-hint">Alt Shift M</kbd>
     </button>
+    <button class="ghost" id="compose-open">Add a note first</button>
     <p class="footnote" id="already" hidden></p>
     <p class="footnote" id="idle-hint"></p>
   </section>
@@ -129,6 +130,27 @@
   <button class="primary" id="save"><span>Save</span></button>
   <button class="ghost" id="close-settings">Back</button>
   <p class="footnote" id="save-note"></p>
+</main>
+
+<main id="view-compose" hidden>
+  <div class="subject">
+    <div class="subject-title" id="compose-title">&hellip;</div>
+    <div class="subject-host" id="compose-host"></div>
+  </div>
+
+  <label class="field">
+    <span class="field-label">Your note</span>
+    <textarea id="compose-note" rows="3" placeholder="Why is this worth keeping?"></textarea>
+  </label>
+
+  <label class="field">
+    <span class="field-label" id="compose-body-label">Summary</span>
+    <textarea id="compose-body" rows="8"></textarea>
+    <small class="field-note" id="compose-body-note"></small>
+  </label>
+
+  <button class="primary" id="compose-save"><span>Remember it</span></button>
+  <button class="ghost" id="compose-cancel">Cancel</button>
 </main>
 
 <main id="view-history" hidden>

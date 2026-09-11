@@ -1,5 +1,7 @@
 // Anona Memory — https://api.anonalabs.com
 
+import { captureMetadata } from '../compose.js';
+
 export const anona = {
   id: 'anona',
   label: 'Anona Memory',
@@ -71,13 +73,7 @@ export const anona = {
       body: {
         space_id: config.spaceId || 'default',
         content: capture.content,
-        metadata: {
-          url: capture.url,
-          title: capture.title,
-          captured_at: capture.capturedAt,
-          source: 'magpie',
-          mode: capture.mode,
-        },
+        metadata: captureMetadata(capture),
         tags: ['magpie'],
         // Queued rather than synchronous: the synchronous path runs an
         // extraction model inline and occasionally 503s under burst, which

@@ -7,6 +7,10 @@ A model running on your own GPU reads the page and writes a few sentences, and
 those few sentences go to your memory layer. The article itself never leaves the
 machine.
 
+When you want to say why you kept it, press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>
+instead. And to keep a passage rather than the page around it, select it and
+right-click.
+
 Works with [Anona Memory](https://anonalabs.com), [Mem0](https://mem0.ai) and
 [Supermemory](https://supermemory.ai).
 
@@ -119,6 +123,25 @@ is visible in history and in the revisit notice. Supermemory is unaffected, sinc
 its `customId` updates in place. This is a decision, not an oversight — the
 opposite call is defensible and is the one Anona's own email failover makes.
 
+**Annotating is a second gesture, not a step.** <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>
+never prompts. <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd> opens compose, which
+starts the distill as it opens — so the note is written while the model runs, and
+the waiting time becomes the typing time rather than being added to it. A
+half-written note survives the popup closing, which it does on any click outside
+it.
+
+**A note goes into the content, not the metadata.** Memory layers extract from
+content and largely ignore metadata, so a note stored there would be kept and
+never found — worse than not offering one, because it looks like it worked. It is
+mirrored into metadata for provenance only.
+
+**A selection is stored verbatim.** You already chose those words; summarising
+them into a shorter paraphrase discards the only thing the selection had. No
+model, instant, and it works without WebGPU. The full selection is read from the
+page rather than taken from the context-menu event, because Chrome truncates the
+copy it puts there — measured at 92,962 characters read against a limit well
+below it.
+
 **Everything is chunked.** Both models have a 4096-token context. After reserving
 150 tokens for the prompt, 350 for the answer and a little slack, an article gets
 **3,500 tokens — about 14,000 characters — per call**, so a normal article does
@@ -182,7 +205,7 @@ processing, report it as accepted, not as stored. `parseResponse` returns
 ## Known limits
 
 - Chrome and Edge only. Firefox's MV3 and WebGPU support are not there.
-- One page at a time, the page you are on. No selection capture.
+- One page at a time, the page you are on.
 - magpie writes to memory layers. It does not read from them.
 - The floating in-page button is off by default. It needs a content script on
   every page, which is "read and change all your data on all websites" at

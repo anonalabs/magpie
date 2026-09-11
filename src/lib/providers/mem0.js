@@ -1,5 +1,7 @@
 // Mem0 — https://docs.mem0.ai
 
+import { captureMetadata } from '../compose.js';
+
 export const mem0 = {
   id: 'mem0',
   label: 'Mem0',
@@ -61,7 +63,7 @@ export const mem0 = {
       body: {
         messages: [{ role: 'user', content: `${capture.title}\n${capture.url}\n\n${capture.content}` }],
         user_id: config.userId,
-        metadata: { url: capture.url, title: capture.title, source: 'magpie', mode: capture.mode },
+        metadata: captureMetadata(capture),
       },
     };
   },

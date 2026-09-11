@@ -23,7 +23,7 @@ const manifest = {
   // there is no host permission for the pages you read.
   // alarms, because a retry has to survive the service worker being killed and
   // a timer inside it would not.
-  permissions: ['activeTab', 'scripting', 'storage', 'offscreen', 'unlimitedStorage', 'alarms'],
+  permissions: ['activeTab', 'scripting', 'storage', 'offscreen', 'unlimitedStorage', 'alarms', 'contextMenus'],
   host_permissions: [
     ...PROVIDER_ORIGINS,
     // Model weights. Data, not code, so fetching them remotely is allowed;
@@ -44,6 +44,10 @@ const manifest = {
       // binds nothing, with no error. See spikes/phase0.
       suggested_key: { default: 'Alt+Shift+M', mac: 'Alt+Shift+M' },
       description: 'Remember this page',
+    },
+    'compose-capture': {
+      suggested_key: { default: 'Alt+Shift+N', mac: 'Alt+Shift+N' },
+      description: 'Remember this page with a note',
     },
   },
   content_security_policy: {

@@ -1,5 +1,7 @@
 // Supermemory — https://supermemory.ai/docs
 
+import { captureMetadata } from '../compose.js';
+
 export const supermemory = {
   id: 'supermemory',
   label: 'Supermemory',
@@ -18,7 +20,7 @@ export const supermemory = {
       // Keyed on the page, so re-remembering a page updates that document
       // instead of piling up near-duplicates of the same article.
       customId: `magpie:${capture.url}`,
-      metadata: { url: capture.url, title: capture.title, source: 'magpie', mode: capture.mode },
+      metadata: captureMetadata(capture),
     };
     // Singular. The plural `containerTags` array is deprecated on v3 and is not
     // accepted at all on v4.

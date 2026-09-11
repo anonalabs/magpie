@@ -179,7 +179,7 @@ async function handOff(record, attempts = 4) {
   throw new Error(`Could not save the summary. ${last?.message ?? 'The extension did not respond.'}`);
 }
 
-async function runDistill({ job: incoming, model }) {
+async function runDistill({ job: incoming, model, draft = false }) {
   // Pressing the shortcut twice, or the button while the model is still
   // downloading, must attach to the capture already running for this tab rather
   // than start a second one against the same engine.
@@ -255,6 +255,10 @@ async function runDistill({ job: incoming, model }) {
     }
 
     if (!summary) throw new Error('The model returned an empty summary.');
+
+    // A draft stops here: the summary goes back to the reader to edit, and the
+    // queue only hears about it if they save.
+    if (draft) return update(job, { state: 'drafted', stage: 'Ready to edit', summary });
 
     update(job, { state: 'writing', stage: 'Saving', summary });
 

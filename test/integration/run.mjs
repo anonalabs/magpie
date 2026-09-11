@@ -285,6 +285,55 @@ async function main() {
     for (const r of rs) await chrome.runtime.sendMessage({ target: 'background', type: 'DELETE_CAPTURE', id: r.id });
     return true;`);
 
+  // ---- compose: a note joins the content ----------------------------------
+  const started = await evalIn(cdp, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'START_COMPOSE', tabId: ${tabId} });`);
+  check('compose reads the page and is ready straight away in raw mode',
+    started?.ok === true && started?.ready === true && started.body.length > 1000,
+    `${started?.body?.length ?? 0} chars`);
+
+  const composedBefore = received.filter((r) => r.url === '/v1/record').length;
+  await evalIn(cdp, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'SAVE_COMPOSE', draft: {
+      tabId: ${tabId}, title: ${JSON.stringify('The Test Article')}, url: ${JSON.stringify(`http://127.0.0.1:${PORT_WEB}/`)},
+      mode: 'raw', note: 'for the caching rewrite', content: 'The body that was captured.',
+    }});`);
+
+  const composed = received.filter((r) => r.url === '/v1/record').at(-1)?.body;
+  check('a compose capture reached the provider',
+    received.filter((r) => r.url === '/v1/record').length > composedBefore, 'sent');
+  check('the note is inside the content, where it can be found',
+    composed?.content?.startsWith('for the caching rewrite'), JSON.stringify(composed?.content?.slice(0, 40)));
+  check('and the body follows it after a separator',
+    composed?.content?.includes('\n\n---\n\n') && composed?.content?.endsWith('The body that was captured.'),
+    'joined');
+  check('the note is mirrored in metadata, never only there',
+    composed?.metadata?.note === 'for the caching rewrite', composed?.metadata?.note);
+
+  // ---- selection: the full selection, not Chrome's truncated copy ----------
+  // context-menu clicks cannot be dispatched, so this tests the mechanism the
+  // handler uses: reading the live selection instead of info.selectionText,
+  // which Chrome truncates.
+  const selectionLength = await evalIn(cdp, `
+    const [{ result: selected }] = await chrome.scripting.executeScript({
+      target: { tabId: ${tabId} },
+      func: () => {
+        const article = document.querySelector('article');
+        const range = document.createRange();
+        range.selectNodeContents(article);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        return (window.getSelection()?.toString() ?? '').length;
+      },
+    });
+    return selected;`);
+
+  // Chrome caps info.selectionText well under this; reading the live selection
+  // is what makes a long quote arrive whole.
+  check('a long selection is read whole, past Chrome\'s truncation limit',
+    selectionLength > 5000, `${selectionLength} chars`);
+
   // ---- a page with nothing to read -------------------------------------
   const { targetId: emptyTab } = await browser.send('Target.createTarget', { url: `http://127.0.0.1:${PORT_WEB}/empty` });
   await sleep(1000);

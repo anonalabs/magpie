@@ -12,6 +12,7 @@ import { push, getProvider } from './lib/providers/registry.js';
 import { MODELS } from './lib/models.js';
 import * as captures from './lib/captures.js';
 import { settle } from './lib/queue.js';
+import { composeContent } from './lib/compose.js';
 
 const DRAIN_ALARM = 'magpie-drain';
 const IN_PAGE_SCRIPT_ID = 'magpie-in-page';
@@ -128,7 +129,13 @@ function describeDestination(settings) {
  * failed write is a retry rather than lost work.
  */
 async function commit(record) {
-  const stored = await captures.enqueue(record);
+  // Composed once, here, so the record on disk is exactly what will be sent —
+  // a retry never has to reassemble anything.
+  const stored = await captures.enqueue({
+    ...record,
+    sourceKind: record.sourceKind ?? 'page',
+    content: composeContent(record.note, record.content),
+  });
   badge(record.tabId, 'working');
   const settled = await send(stored);
   await scheduleDrain();
@@ -144,6 +151,8 @@ async function send(record) {
     content: record.content,
     capturedAt: record.capturedAt,
     mode: record.mode,
+    note: record.note,
+    sourceKind: record.sourceKind,
   }, config);
 
   const settled = settle(record, result);
@@ -224,6 +233,155 @@ async function captureState(tabId) {
   const record = (await captures.readAll()).find((r) => r.tabId === tabId);
   return jobFromRecord(record);
 }
+
+// --------------------------------------------------------------- compose ----
+/**
+ * Starts a capture the reader will annotate.
+ *
+ * The distill begins immediately and the answer comes back before it finishes,
+ * so the note is written while the model runs. The waiting time becomes the
+ * typing time instead of being added to it.
+ */
+async function startCompose(tabId) {
+  const settings = await loadSettings();
+
+  let article;
+  try {
+    article = await extractActiveTab(tabId);
+  } catch (err) {
+    return { ok: false, code: 'extract_failed', message: `Could not read this page. ${err?.message ?? err}` };
+  }
+  if (!article?.ok) return { ok: false, ...(article ?? { code: 'extract_failed', message: 'Could not read this page.' }) };
+
+  const base = {
+    ok: true,
+    tabId,
+    title: article.title,
+    url: article.url,
+    mode: settings.mode,
+    destination: describeDestination(settings),
+  };
+
+  // Raw mode has nothing to wait for: the body is the article text.
+  if (settings.mode === 'raw') return { ...base, body: article.text, ready: true };
+
+  await ensureOffscreen();
+  toOffscreen(MSG.RUN_DISTILL, {
+    job: { ...base, capturedAt: new Date().toISOString(), providerId: settings.providerId },
+    model: MODELS[settings.modelSize] ?? MODELS.small,
+    draft: true,
+  });
+  // The summary arrives later as a JOB_UPDATE in the 'drafted' state.
+  return { ...base, body: '', ready: false };
+}
+
+async function saveCompose(draft) {
+  const settings = await loadSettings();
+  const content = (draft.content ?? '').trim();
+  if (!content && !(draft.note ?? '').trim()) {
+    return { state: 'error', result: { ok: false, code: 'nothing_to_save', message: 'There is nothing to save.' } };
+  }
+
+  return jobFromRecord(await commit({
+    tabId: draft.tabId,
+    title: draft.title,
+    url: draft.url,
+    capturedAt: new Date().toISOString(),
+    mode: draft.mode,
+    sourceKind: draft.sourceKind ?? 'page',
+    note: draft.note,
+    providerId: settings.providerId,
+    destination: describeDestination(settings),
+    content,
+    chars: content.length,
+    kind: draft.mode === 'raw' ? 'article text' : 'summary',
+  }));
+}
+
+/**
+ * A keyboard shortcut cannot open the popup before Chrome 127. Where it can,
+ * it does; where it cannot, the request is parked and the badge marks it, so
+ * the next time the popup is opened it opens into compose. The shortcut never
+ * silently does nothing.
+ */
+async function requestCompose(tabId) {
+  await chrome.storage.session.set({ pendingCompose: tabId });
+  try {
+    await chrome.action.openPopup();
+  } catch {
+    badge(tabId, 'working');
+  }
+}
+
+// ------------------------------------------------------------- selection ----
+const SELECTION_MENU_ID = 'magpie-remember-selection';
+
+/**
+ * Guarded like the alarms listener: a permission added in a build is invisible
+ * to Chrome until the extension is reloaded, and an unguarded call to a missing
+ * API at the top of the worker kills the worker and every capture with it.
+ */
+function installMenus() {
+  if (!chrome.contextMenus) return;
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: SELECTION_MENU_ID,
+      title: 'Remember this selection',
+      contexts: ['selection'],
+    });
+  });
+}
+
+chrome.runtime.onInstalled.addListener(installMenus);
+chrome.runtime.onStartup.addListener(installMenus);
+
+/**
+ * A selection is stored exactly as selected: no model, instant, and it works on
+ * a machine with no WebGPU. You already chose those words — summarising them
+ * into a shorter paraphrase discards the only thing the selection had.
+ */
+async function captureSelection(tab, info) {
+  if (tab?.id == null) return null;
+  badge(tab.id, 'working');
+
+  // info.selectionText is TRUNCATED by Chrome. Reading the live selection is
+  // the difference between storing a quote and storing a clipped one, which is
+  // the kind of bug nobody notices until the memory is useless.
+  let text = '';
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => (window.getSelection()?.toString() ?? ''),
+    });
+    text = result ?? '';
+  } catch {
+    text = info?.selectionText ?? '';
+  }
+  if (!text.trim()) text = info?.selectionText ?? '';
+
+  if (!text.trim()) {
+    return fail(tab.id, { code: 'no_selection', message: 'Nothing was selected on the page.' });
+  }
+
+  const settings = await loadSettings();
+  return jobFromRecord(await commit({
+    tabId: tab.id,
+    title: tab.title || tab.url,
+    url: tab.url,
+    capturedAt: new Date().toISOString(),
+    mode: 'selection',
+    sourceKind: 'selection',
+    providerId: settings.providerId,
+    destination: describeDestination(settings),
+    content: text.trim(),
+    chars: text.trim().length,
+    kind: 'selection',
+  }));
+}
+
+chrome.contextMenus?.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === SELECTION_MENU_ID) captureSelection(tab, info);
+});
 
 // ---------------------------------------------------- in-page button ----
 /**
@@ -312,9 +470,10 @@ chrome.permissions.onRemoved.addListener(syncInPage);
 
 // ---------------------------------------------------------------- wiring ----
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== 'remember-page') return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab?.id != null) await startCapture(tab.id);
+  if (tab?.id == null) return;
+  if (command === 'remember-page') await startCapture(tab.id);
+  if (command === 'compose-capture') await requestCompose(tab.id);
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
@@ -352,6 +511,16 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
       }, respond);
     case MSG.DELETE_CAPTURE:
       return respondAsync(async () => { await captures.remove(msg.id); return { ok: true }; }, respond);
+    case MSG.START_COMPOSE:
+      return respondAsync(() => startCompose(msg.tabId), respond);
+    case MSG.SAVE_COMPOSE:
+      return respondAsync(() => saveCompose(msg.draft), respond);
+    case MSG.PENDING_COMPOSE:
+      return respondAsync(async () => {
+        const { pendingCompose } = await chrome.storage.session.get('pendingCompose');
+        if (pendingCompose != null) await chrome.storage.session.remove('pendingCompose');
+        return { tabId: pendingCompose ?? null };
+      }, respond);
     case MSG.GET_CAPTURE_STATE:
       return respondAsync(() => captureState(msg.tabId), respond);
     case MSG.PRELOAD_MODEL:

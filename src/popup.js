@@ -9,7 +9,9 @@ import { captureKey } from './lib/queue.js';
 
 const $ = (id) => document.getElementById(id);
 const STATES = ['state-idle', 'state-working', 'state-queued', 'state-done', 'state-error'];
-const VIEWS = { main: 'view-main', settings: 'view-settings', history: 'view-history' };
+const VIEWS = {
+  main: 'view-main', compose: 'view-compose', settings: 'view-settings', history: 'view-history',
+};
 const show = (id) => { for (const s of STATES) $(s).hidden = s !== id; };
 
 let tabId = null;
@@ -63,6 +65,10 @@ function renderJob(job) {
         : 'Saved here and waiting to reach your memory layer. magpie will keep trying.';
       return;
     }
+
+    case 'drafted':
+      // Handled by the compose view, not by the main one.
+      return;
 
     case 'remembered': {
       rail('off');
@@ -147,6 +153,99 @@ function showView(next) {
   window.scrollTo(0, 0);
   if (next === 'history') renderHistory();
 }
+
+// --------------------------------------------------------------- compose ----
+// The whole point of compose is that it costs no waiting: the distill starts
+// when the view opens, and the note is written while the model runs.
+let draft = null;
+
+const DRAFT_KEY = () => `draft:${tabId}`;
+
+async function openCompose() {
+  showView('compose');
+  $('compose-title').textContent = $('page-title').textContent;
+  $('compose-host').textContent = $('page-url').textContent;
+  $('compose-note').value = '';
+  $('compose-body').value = '';
+  $('compose-save').disabled = true;
+
+  // A half-written note must survive the popup closing, which it does on any
+  // click outside it. Restoring one is the difference between a feature you can
+  // trust with a thought and one you cannot.
+  const saved = (await chrome.storage.session.get(DRAFT_KEY()))[DRAFT_KEY()];
+  if (saved) {
+    draft = saved;
+    $('compose-note').value = saved.note ?? '';
+    $('compose-body').value = saved.content ?? '';
+    $('compose-save').disabled = false;
+    fillBodyLabel(saved.mode, Boolean(saved.content));
+    $('compose-note').focus();
+    return;
+  }
+
+  const started = await toBackground(MSG.START_COMPOSE, { tabId });
+  if (!started?.ok) {
+    showView('main');
+    return renderJob({ state: 'error', result: started ?? { message: 'Could not read this page.' } });
+  }
+
+  draft = { ...started, note: '', content: started.body ?? '' };
+  $('compose-title').textContent = started.title;
+  $('compose-host').textContent = hostOf(started.url);
+  $('compose-body').value = started.body ?? '';
+  $('compose-save').disabled = !started.ready;
+  fillBodyLabel(started.mode, started.ready);
+  $('compose-note').focus();
+}
+
+function fillBodyLabel(mode, ready) {
+  const body = $('compose-body');
+  $('compose-body-label').textContent = mode === 'raw' ? 'Page text' : 'Summary';
+  body.disabled = !ready;
+  body.placeholder = ready ? '' : 'The model is writing it — keep typing your note.';
+  $('compose-body-note').textContent = ready
+    ? 'Edit it if you like. Your note is saved above it.'
+    : 'Writing the summary on this device…';
+}
+
+/** The draft summary arriving from the offscreen document. */
+function applyDraftSummary(job) {
+  if (!draft || job.tabId !== tabId) return;
+  draft.content = job.summary ?? '';
+  draft.capturedAt = job.capturedAt;
+  // Never overwrite something already typed into the box.
+  if (!$('compose-body').value.trim()) $('compose-body').value = draft.content;
+  $('compose-save').disabled = false;
+  fillBodyLabel(draft.mode, true);
+  persistDraft();
+}
+
+function persistDraft() {
+  if (!draft || tabId == null) return;
+  draft.note = $('compose-note').value;
+  draft.content = $('compose-body').value;
+  chrome.storage.session.set({ [DRAFT_KEY()]: draft }).catch(() => {});
+}
+
+async function saveCompose() {
+  persistDraft();
+  $('compose-save').disabled = true;
+  const result = await toBackground(MSG.SAVE_COMPOSE, { draft });
+  await chrome.storage.session.remove(DRAFT_KEY()).catch(() => {});
+  draft = null;
+  showView('main');
+  renderJob(result);
+}
+
+async function cancelCompose() {
+  await chrome.storage.session.remove(DRAFT_KEY()).catch(() => {});
+  draft = null;
+  showView('main');
+}
+
+const hostOf = (url) => {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url ?? ''; }
+};
 
 const openSettings = (open) => showView(open ? 'settings' : 'main');
 const settingsOpen = () => view === 'settings';
@@ -579,6 +678,11 @@ async function renderShortcut() {
   $('destination').onclick = () => showView(view === 'main' ? 'settings' : 'main');
   $('close-settings').onclick = () => showView('main');
   $('open-history').onclick = () => showView('history');
+  $('compose-open').onclick = openCompose;
+  $('compose-save').onclick = saveCompose;
+  $('compose-cancel').onclick = cancelCompose;
+  $('compose-note').oninput = persistDraft;
+  $('compose-body').oninput = persistDraft;
   $('queued-history').onclick = () => showView('history');
   for (const el of document.querySelectorAll('input[name=mode]')) el.onchange = renderModeNote;
 
@@ -602,7 +706,13 @@ async function renderShortcut() {
   if (tabId != null) renderJob(await toBackground(MSG.GET_CAPTURE_STATE, { tabId }));
 
   chrome.runtime.onMessage.addListener((msg) => {
-    if (msg?.type === 'JOB_UPDATE' && msg.job?.tabId === tabId) renderJob(msg.job);
+    if (msg?.type !== 'JOB_UPDATE' || msg.job?.tabId !== tabId) return false;
+    if (msg.job.state === 'drafted') applyDraftSummary(msg.job);
+    else if (view !== 'compose') renderJob(msg.job);
     return false;
   });
+
+  // A compose shortcut parks its request when it cannot open the popup itself.
+  const pending = await toBackground(MSG.PENDING_COMPOSE).catch(() => null);
+  if (pending?.tabId === tabId) openCompose();
 })();
