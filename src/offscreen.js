@@ -10,7 +10,7 @@ import { CreateMLCEngine } from '@mlc-ai/web-llm';
 import { MSG, TO_OFFSCREEN, respondAsync, toBackground } from './lib/messages.js';
 import { planSummarisation, reducePlan } from './lib/chunk.js';
 import { appConfigFor } from './lib/models.js';
-import { isDeviceLost } from './lib/gpu.js';
+import { isDeviceLost, isGpuFault } from './lib/gpu.js';
 // The legacy build, deliberately. The modern one calls
 // Uint8Array.prototype.toHex without defining it — a very recent method that
 // Chrome did not have until long after this extension's floor of 116, so the
@@ -315,12 +315,13 @@ async function runDistill({ job: incoming, model, draft = false }) {
         try {
           return await complete(engineRef, prompt);
         } catch (err) {
-          // A lost device cannot be used again, and it is cached — so without
-          // this, one driver reset breaks every capture until the extension is
-          // reloaded. Discard it and rebuild once.
-          if (!isDeviceLost(err) || attempt > 0) throw err;
+          // Any GPU-level fault leaves the engine suspect, and it is cached —
+          // so without this, one fault breaks every capture until the extension
+          // is reloaded. Discard it and rebuild once. The weights are already
+          // cached, so this costs seconds rather than another download.
+          if (!isGpuFault(err) || attempt > 0) throw err;
           discardEngine();
-          update(job, { state: 'loading', loadProgress: 0, stage: 'The GPU reset — reloading the model' });
+          update(job, { state: 'loading', loadProgress: 0, stage: 'The GPU stumbled — reloading the model' });
         }
       }
     };
@@ -378,7 +379,7 @@ async function runDistill({ job: incoming, model, draft = false }) {
     // rides along so the receipt can show what was stored.
     return update(job, { ...settled, summary });
   } catch (err) {
-    if (isDeviceLost(err)) discardEngine();
+    if (isGpuFault(err)) discardEngine();
     return update(job, { state: 'error', stage: 'Failed', result: { ok: false, ...classify(err, model) } });
   } finally {
     progressListeners.delete(onProgress);
@@ -406,6 +407,15 @@ function classify(err, model) {
       // Reloading is usually enough. If it keeps happening on the bigger model,
       // the smaller one asks far less of the GPU.
       recover: model?.id?.includes('3B') ? 'smaller_model' : undefined,
+    };
+  }
+
+  if (isGpuFault(err)) {
+    return {
+      code: 'gpu_fault',
+      message: 'The GPU failed part-way through, twice in a row. This usually means it is under '
+        + 'pressure — closing other heavy tabs, or using the smaller model, gives it more room.',
+      recover: model?.id?.includes('3B') ? 'smaller_model' : 'raw',
     };
   }
 

@@ -288,6 +288,12 @@ planted CDN `.wasm` before its passing result is trusted.
 - Distilling needs WebGPU. Without it magpie says so and offers to send page
   text instead, rather than failing quietly.
 - Scanned PDFs need OCR, which magpie does not do.
+- WebGPU faults happen, particularly on integrated graphics under pressure —
+  a lost device, or a buffer unmapped underneath a pending read. magpie treats
+  any of them as meaning the engine is suspect: it throws the engine away and
+  rebuilds it once, from the cached weights, rather than reusing one whose state
+  it cannot trust. Reusing it turns a single fault into every later capture
+  failing, which is the shape of bug this has produced twice.
 - YouTube transcripts were considered and rejected: there is no public transcript
   API, and the workable route reads YouTube's internal player JSON out of the
   page — it works until YouTube changes shape, and no version of it does not.

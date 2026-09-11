@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isDeviceLost } from '../src/lib/gpu.js';
+import { isDeviceLost, isGpuFault } from '../src/lib/gpu.js';
 
 describe('isDeviceLost', () => {
   it('recognises the Vulkan failure Chrome reports on Linux', () => {
@@ -40,5 +40,44 @@ describe('isDeviceLost', () => {
     expect(isDeviceLost(null)).toBe(false);
     expect(isDeviceLost(undefined)).toBe(false);
     expect(isDeviceLost({})).toBe(false);
+  });
+});
+
+
+describe('isGpuFault', () => {
+  it('covers the mapAsync failure seen on an Intel Iris Xe', () => {
+    // Verbatim from a real capture.
+    expect(isGpuFault(new Error(
+      "Failed to execute 'mapAsync' on 'GPUBuffer': Buffer was unmapped before mapping was resolved.",
+    ))).toBe(true);
+  });
+
+  it('covers a lost device too — the engine is suspect either way', () => {
+    expect(isGpuFault(new Error('vkQueueSubmit failed with VK_ERROR_DEVICE_LOST'))).toBe(true);
+    expect(isGpuFault(new Error('Device was lost'))).toBe(true);
+  });
+
+  it('covers the other ways GPU state goes bad', () => {
+    for (const text of [
+      'GPUBuffer is destroyed',
+      'Buffer is already mapped',
+      'createBuffer failed: out of memory',
+      'GPUQueue validation error',
+    ]) expect(isGpuFault(new Error(text)), text).toBe(true);
+  });
+
+  it('does not claim failures that leave the engine perfectly usable', () => {
+    // Rebuilding the engine for these would reload the model for nothing.
+    for (const text of [
+      'Failed to fetch',
+      'The model returned an empty summary.',
+      'Could not save the summary.',
+      'This browser or GPU does not support WebGPU.',
+    ]) expect(isGpuFault(new Error(text)), text).toBe(false);
+  });
+
+  it('is safe on nothing at all', () => {
+    expect(isGpuFault(null)).toBe(false);
+    expect(isGpuFault(undefined)).toBe(false);
   });
 });
