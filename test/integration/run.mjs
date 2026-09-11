@@ -351,6 +351,26 @@ async function main() {
       captured ? `${captured} write(s) reached the provider` : 'no write ever arrived');
   }
 
+  // ---- a stale content-script registration --------------------------------
+  // Registrations persist across sessions, so one made by a previous version
+  // survives an update carrying that version's match patterns. syncInPage must
+  // clear it rather than read it as "already registered".
+  const stale = await evalIn(cdpSettings, `
+    await chrome.scripting.unregisterContentScripts({ ids: ['magpie-in-page'] }).catch(() => {});
+    await chrome.scripting.registerContentScripts([{
+      id: 'magpie-in-page', js: ['in-page.js'],
+      matches: ['http://127.0.0.1:${PORT_WEB}/*'], runAt: 'document_idle',
+    }]);
+    const before = (await chrome.scripting.getRegisteredContentScripts({ ids: ['magpie-in-page'] })).length;
+    await chrome.runtime.sendMessage({ target: 'background', type: 'SYNC_IN_PAGE' });
+    const after = (await chrome.scripting.getRegisteredContentScripts({ ids: ['magpie-in-page'] })).length;
+    return { before, after };`);
+
+  // The all-sites permission is not granted here, so the correct end state is
+  // no registration at all — and crucially not the stale one.
+  check('a stale registration is cleared, not trusted', stale.before === 1 && stale.after === 0,
+    `before ${stale.before}, after ${stale.after}`);
+
   // ---- distill with no WebGPU -----------------------------------------
   await evalIn(cdp, `
     const s = (await chrome.storage.local.get('settings')).settings;

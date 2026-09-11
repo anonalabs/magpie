@@ -11,6 +11,7 @@ import { MSG, TO_OFFSCREEN, respondAsync } from './lib/messages.js';
 import { planSummarisation, reducePlan, estimateTokens } from './lib/chunk.js';
 import { push } from './lib/providers/registry.js';
 import { appConfigFor } from './lib/models.js';
+import { isDeviceLost } from './lib/gpu.js';
 
 const jobs = new Map();        // tabId -> job state, the record the popup reads
 
@@ -175,33 +176,47 @@ async function runDistill({ job: incoming, model, providerConfig }) {
   };
   jobs.set(job.tabId, job);
 
+  // Registered for the whole job, not just the first load: if the GPU device is
+  // lost mid-job the model is reloaded, and that reload needs to report progress
+  // too or the popup sits on a stale "part 3 of 6" for a minute.
+  const onProgress = (report) =>
+    update(job, { state: 'loading', stage: describeLoad(report), loadProgress: report.progress ?? 0 });
+  progressListeners.add(onProgress);
+
   try {
     const plan = planSummarisation(incoming.text, model.contextWindow);
     update(job, { totalSteps: plan.totalCalls, stage: 'Loading the model' });
 
-    // WebLLM reports download and GPU-upload progress as one 0..1 figure.
-    const onProgress = (report) =>
-      update(job, { state: 'loading', stage: describeLoad(report), loadProgress: report.progress ?? 0 });
-
-    progressListeners.add(onProgress);
-    let engineRef;
-    try {
-      engineRef = await getEngine(model);
-    } finally {
-      progressListeners.delete(onProgress);
-    }
-
-    update(job, { state: 'summarising', loadProgress: 1 });
+    // Every model call goes through here. The engine is resolved per call rather
+    // than held for the whole job, so a discarded engine is simply reloaded on
+    // the next one.
+    const ask = async (prompt, stage, step) => {
+      for (let attempt = 0; ; attempt++) {
+        const engineRef = await getEngine(model);
+        update(job, { state: 'summarising', loadProgress: 1, stage, ...(step ? { step } : {}) });
+        try {
+          return await complete(engineRef, prompt);
+        } catch (err) {
+          // A lost device cannot be used again, and it is cached — so without
+          // this, one driver reset breaks every capture until the extension is
+          // reloaded. Discard it and rebuild once.
+          if (!isDeviceLost(err) || attempt > 0) throw err;
+          discardEngine();
+          update(job, { state: 'loading', loadProgress: 0, stage: 'The GPU reset — reloading the model' });
+        }
+      }
+    };
 
     let summary;
     if (plan.chunks.length === 1) {
-      update(job, { stage: 'Summarising', step: 1 });
-      summary = await complete(engineRef, prompts.whole(job.title, plan.chunks[0]));
+      summary = await ask(prompts.whole(job.title, plan.chunks[0]), 'Summarising', 1);
     } else {
       const parts = [];
       for (const [i, chunk] of plan.chunks.entries()) {
-        update(job, { stage: `Summarising part ${i + 1} of ${plan.chunks.length}`, step: i + 1 });
-        parts.push(await complete(engineRef, prompts.section(job.title, chunk, i + 1, plan.chunks.length)));
+        parts.push(await ask(
+          prompts.section(job.title, chunk, i + 1, plan.chunks.length),
+          `Summarising part ${i + 1} of ${plan.chunks.length}`, i + 1,
+        ));
       }
 
       // Reduce. If the joined section summaries still overflow, fold them in
@@ -209,15 +224,13 @@ async function runDistill({ job: incoming, model, providerConfig }) {
       let pending = parts;
       let round = reducePlan(pending, plan.budgetTokens);
       while (!round.fits) {
-        update(job, { stage: 'Condensing' });
         const folded = [];
-        for (const group of round.chunks) folded.push(await complete(engineRef, prompts.reduce(job.title, group)));
+        for (const group of round.chunks) folded.push(await ask(prompts.reduce(job.title, group), 'Condensing'));
         pending = folded;
         round = reducePlan(pending, plan.budgetTokens);
       }
 
-      update(job, { stage: 'Writing the summary', step: plan.totalCalls });
-      summary = await complete(engineRef, prompts.reduce(job.title, round.joined));
+      summary = await ask(prompts.reduce(job.title, round.joined), 'Writing the summary', plan.totalCalls);
     }
 
     if (!summary) throw new Error('The model returned an empty summary.');
@@ -235,13 +248,37 @@ async function runDistill({ job: incoming, model, providerConfig }) {
       stored: { chars: summary.length, tokens: estimateTokens(summary), kind: 'summary' },
     });
   } catch (err) {
-    return update(job, { state: 'error', stage: 'Failed', result: { ok: false, ...classify(err) } });
+    if (isDeviceLost(err)) discardEngine();
+    return update(job, { state: 'error', stage: 'Failed', result: { ok: false, ...classify(err, model) } });
+  } finally {
+    progressListeners.delete(onProgress);
   }
 }
 
+function discardEngine() {
+  const dying = enginePromise;
+  enginePromise = null;
+  engineModelId = null;
+  engine = null;
+  // Best effort. The device is already gone, so this usually throws.
+  dying?.then((old) => old?.unload?.().catch(() => {}), () => {});
+}
+
 /** Turn an engine failure into something with a recovery action attached. */
-function classify(err) {
+function classify(err, model) {
   const message = String(err?.message ?? err);
+
+  if (isDeviceLost(err)) {
+    return {
+      code: 'gpu_device_lost',
+      message: 'The graphics driver reset while the model was running, so the summary was lost. '
+        + 'The page itself is untouched.',
+      // Reloading is usually enough. If it keeps happening on the bigger model,
+      // the smaller one asks far less of the GPU.
+      recover: model?.id?.includes('3B') ? 'smaller_model' : undefined,
+    };
+  }
+
   if (err?.code === 'webgpu_unavailable' || /webgpu/i.test(message)) {
     return {
       code: 'webgpu_unavailable',

@@ -150,26 +150,46 @@ async function captureState(tabId) {
  */
 async function syncInPage() {
   const granted = await chrome.permissions.contains(IN_PAGE_ORIGINS);
-  const existing = await chrome.scripting
-    .getRegisteredContentScripts({ ids: [IN_PAGE_SCRIPT_ID] })
-    .catch(() => []);
 
-  if (!granted) {
-    if (existing.length) await chrome.scripting.unregisterContentScripts({ ids: [IN_PAGE_SCRIPT_ID] });
-    return { registered: false };
-  }
-  if (existing.length) return { registered: true };
+  // Always cleared first, never "it exists so we are done". Registrations
+  // persist across sessions, so an old one made by a previous version survives
+  // an update — with that version's match patterns. Treating it as current left
+  // a registration that matched nothing, which looks exactly like the feature
+  // being broken.
+  await chrome.scripting.unregisterContentScripts({ ids: [IN_PAGE_SCRIPT_ID] }).catch(() => {});
+  if (!granted) return { registered: false };
 
   await chrome.scripting.registerContentScripts([{
     id: IN_PAGE_SCRIPT_ID,
     js: ['in-page.js'],
-    matches: ['http://*/*', 'https://*/*'],
+    matches: IN_PAGE_ORIGINS.origins,
     runAt: 'document_idle',
     // Top frame only: every ad slot and embedded player is also a frame.
     allFrames: false,
     persistAcrossSessions: true,
   }]);
-  return { registered: true };
+
+  // A content script only applies to pages loaded after it is registered, so
+  // without this the button appears on nothing already open — including the tab
+  // the reader was on when they turned it on, which is the one they will check.
+  const injected = await injectIntoOpenTabs();
+  return { registered: true, injected };
+}
+
+async function injectIntoOpenTabs() {
+  const tabs = await chrome.tabs.query({ url: IN_PAGE_ORIGINS.origins }).catch(() => []);
+  let injected = 0;
+  await Promise.all(tabs.map(async (tab) => {
+    if (tab.id == null) return;
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['in-page.js'] });
+      injected++;
+    } catch {
+      // A tab can be discarded, still loading, or a page Chrome will not script.
+      // None of those is worth failing the whole switch-on for.
+    }
+  }));
+  return injected;
 }
 
 chrome.runtime.onStartup.addListener(syncInPage);

@@ -46,8 +46,14 @@ $('allow').onclick = async () => {
 
   // The service worker also watches permissions.onAdded; this just makes the
   // registration immediate rather than whenever the worker next wakes.
-  await toBackground(MSG.SYNC_IN_PAGE);
-  report('good', 'Done. Open any page and the button is in the corner.', true);
+  const sync = await toBackground(MSG.SYNC_IN_PAGE);
+
+  // Say what happened to the tabs already open, because that is where the
+  // reader will look first and a content script normally reaches none of them.
+  const injected = sync?.injected ?? 0;
+  report('good', injected
+    ? `Done. The button is on ${injected} open tab${injected === 1 ? '' : 's'} already, and on every page from now on.`
+    : 'Done. Open any page and the button is in the corner.', true);
 };
 
 $('close').onclick = () => window.close();
