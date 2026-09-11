@@ -67,7 +67,8 @@ was built — see [`spikes/phase0`](spikes/phase0).
 
 **The popup is a viewer.** Every capture can be started from the keyboard with no
 popup at all; the badge (`…` → `✓`) is the whole interface for that path. Open
-the popup mid-capture and it attaches to what is already running.
+the popup mid-capture and it attaches to what is already running. The same is
+true of the optional in-page button.
 
 **Everything is chunked.** Both models have a 4096-token context, so a normal
 article does not fit in one pass. magpie splits on headings and paragraphs, never
@@ -112,6 +113,10 @@ processing, report it as accepted, not as stored. `parseResponse` returns
 - Chrome and Edge only. Firefox's MV3 and WebGPU support are not there.
 - One page at a time, the page you are on. No selection capture, no queueing.
 - magpie writes to memory layers. It does not read from them.
+- The floating in-page button is off by default. It needs a content script on
+  every page, which is "read and change all your data on all websites" at
+  install time, so it is an optional permission you turn on in settings rather
+  than something the default install takes.
 - The distill path needs WebGPU. On a machine without it, magpie says so and
   offers to send page text instead, rather than failing quietly.
 

@@ -12,6 +12,7 @@ import { push } from './lib/providers/registry.js';
 import { MODELS } from './lib/models.js';
 
 const RAW_STATE_KEY = (tabId) => `raw:${tabId}`;
+const IN_PAGE_SCRIPT_ID = 'magpie-in-page';
 
 // ---------------------------------------------------------------- badge ----
 // The entire UI for the keyboard-shortcut path, which never opens the popup.
@@ -134,6 +135,45 @@ async function captureState(tabId) {
   return (await chrome.storage.session.get(RAW_STATE_KEY(tabId)))[RAW_STATE_KEY(tabId)] ?? null;
 }
 
+// ---------------------------------------------------- in-page button ----
+/**
+ * Registers or removes the floating in-page button to match the optional
+ * all-sites permission.
+ *
+ * Registered dynamically rather than declared in the manifest: a declared
+ * content script is part of the install prompt forever, whereas this one exists
+ * only while the permission does, so revoking it genuinely removes the script
+ * instead of leaving it declared and silently inert.
+ */
+async function syncInPage() {
+  const granted = await chrome.permissions.contains({ origins: ['<all_urls>'] });
+  const existing = await chrome.scripting
+    .getRegisteredContentScripts({ ids: [IN_PAGE_SCRIPT_ID] })
+    .catch(() => []);
+
+  if (!granted) {
+    if (existing.length) await chrome.scripting.unregisterContentScripts({ ids: [IN_PAGE_SCRIPT_ID] });
+    return { registered: false };
+  }
+  if (existing.length) return { registered: true };
+
+  await chrome.scripting.registerContentScripts([{
+    id: IN_PAGE_SCRIPT_ID,
+    js: ['in-page.js'],
+    matches: ['<all_urls>'],
+    runAt: 'document_idle',
+    // Top frame only: every ad slot and embedded player is also a frame.
+    allFrames: false,
+    persistAcrossSessions: true,
+  }]);
+  return { registered: true };
+}
+
+chrome.runtime.onStartup.addListener(syncInPage);
+chrome.runtime.onInstalled.addListener(syncInPage);
+chrome.permissions.onAdded.addListener(syncInPage);
+chrome.permissions.onRemoved.addListener(syncInPage);
+
 // ---------------------------------------------------------------- wiring ----
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== 'remember-page') return;
@@ -146,12 +186,20 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.url) badge(tabId, 'clear');
 });
 
-chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
+chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   if (msg?.target !== TO_BACKGROUND) return false;
 
   switch (msg.type) {
     case MSG.START_CAPTURE:
       return respondAsync(() => startCapture(msg.tabId), respond);
+    case MSG.START_CAPTURE_FROM_PAGE:
+      // The page never names a tab; the only trustworthy id is the sender's.
+      return respondAsync(async () => {
+        if (sender.tab?.id == null) return { state: 'error', result: { ok: false, message: 'No tab to capture.' } };
+        return startCapture(sender.tab.id);
+      }, respond);
+    case MSG.SYNC_IN_PAGE:
+      return respondAsync(syncInPage, respond);
     case MSG.GET_CAPTURE_STATE:
       return respondAsync(() => captureState(msg.tabId), respond);
     case MSG.PRELOAD_MODEL:
@@ -172,5 +220,9 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type !== 'JOB_UPDATE' || msg.job?.tabId == null) return false;
   if (msg.job.state === 'remembered') badge(msg.job.tabId, 'ok');
   else if (msg.job.state === 'error') badge(msg.job.tabId, 'error');
+
+  // runtime.sendMessage does not reach content scripts, so the in-page button
+  // is told separately. It may not be there at all, which is not an error.
+  chrome.tabs.sendMessage(msg.job.tabId, { type: 'JOB_UPDATE', job: msg.job }).catch(() => {});
   return false;
 });

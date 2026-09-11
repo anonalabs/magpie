@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { PROVIDERS, getProvider, missingFields, push } from '../src/lib/providers/registry.js';
+import { PROVIDERS, getProvider, missingFields, push, loadFieldOptions } from '../src/lib/providers/registry.js';
 
 const capture = {
   title: 'A Page',
@@ -10,7 +10,11 @@ const capture = {
 };
 
 function mockFetch(status, payload) {
-  const spy = vi.fn().mockResolvedValue({ status, json: async () => payload });
+  // A real Response carries `ok` as well as `status`; omitting it made every
+  // `res.ok` check read as a failure.
+  const spy = vi.fn().mockResolvedValue({
+    status, ok: status >= 200 && status < 300, json: async () => payload,
+  });
   vi.stubGlobal('fetch', spy);
   return spy;
 }
@@ -47,7 +51,7 @@ describe('registry', () => {
 
   it('survives an error response that is not JSON', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      status: 502, json: async () => { throw new SyntaxError('Unexpected token <'); },
+      status: 502, ok: false, json: async () => { throw new SyntaxError('Unexpected token <'); },
     }));
     const res = await push('anona', capture, { apiKey: 'k', spaceId: 'default' });
     expect(res.ok).toBe(false);
@@ -135,5 +139,73 @@ describe('supermemory', () => {
     mockFetch(200, { id: 'doc_1', status: 'done' });
     const res = await push('supermemory', capture, { apiKey: 'k' });
     expect(res).toMatchObject({ ok: true, id: 'doc_1', state: 'stored' });
+  });
+});
+
+
+describe('anona space listing', () => {
+  const withKey = { apiKey: 'anona_live_x', spaceId: 'default' };
+
+  it('refuses to call the API before there is a key to call it with', async () => {
+    const spy = mockFetch(200, {});
+    const res = await loadFieldOptions('anona', 'spaceId', { spaceId: 'default' });
+    expect(res).toMatchObject({ ok: false });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('lists spaces from the slash-less collection route with a bearer key', async () => {
+    const spy = mockFetch(200, { spaces: [{ space_id: 'notes', name: 'Notes' }], total: 1 });
+    await loadFieldOptions('anona', 'spaceId', withKey);
+
+    // A trailing slash here answers 307, which some clients will not replay.
+    expect(spy.mock.calls[0][0]).toBe('https://api.anonalabs.com/v1/spaces');
+    expect(spy.mock.calls[0][1].headers.Authorization).toBe('Bearer anona_live_x');
+  });
+
+  it('addresses a shared space by its qualified id, and says who shared it', async () => {
+    mockFetch(200, { spaces: [
+      { space_id: 'default', name: 'Default' },
+      { space_id: 'default', name: 'Default', shared_by: 'Acme', qualified_id: 'acme:default' },
+    ], total: 2 });
+
+    const res = await loadFieldOptions('anona', 'spaceId', withKey);
+
+    // Both are named "default"; the bare form would be refused as ambiguous, so
+    // the shared one must be offered under its qualified id.
+    expect(res.options.map((o) => o.value)).toEqual(['default', 'acme:default']);
+    expect(res.options[1].note).toBe('shared by Acme');
+    expect(res.options[0].note).toBe('');
+  });
+
+  it('falls back to the space id when a space has no name', async () => {
+    mockFetch(200, { spaces: [{ space_id: 'raw-id', name: '' }], total: 1 });
+    const res = await loadFieldOptions('anona', 'spaceId', withKey);
+    expect(res.options[0].label).toBe('raw-id');
+  });
+
+  it('reports an empty account as an empty list, not an error', async () => {
+    mockFetch(200, { spaces: [], total: 0 });
+    const res = await loadFieldOptions('anona', 'spaceId', withKey);
+    expect(res).toMatchObject({ ok: true });
+    expect(res.options).toEqual([]);
+  });
+
+  it('surfaces a rejected key as a message rather than an empty list', async () => {
+    mockFetch(401, { error: { code: 'invalid_api_key', message: 'API key not recognised' } });
+    const res = await loadFieldOptions('anona', 'spaceId', withKey);
+    expect(res.ok).toBe(false);
+    expect(res.message).toMatch(/not recognised/);
+  });
+
+  it('does not throw when the network is gone — typing the name still works', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Failed to fetch')));
+    const res = await loadFieldOptions('anona', 'spaceId', withKey);
+    expect(res).toMatchObject({ ok: false });
+    expect(res.message).toMatch(/Could not reach/);
+  });
+
+  it('has nothing to load for a provider that lists nothing', async () => {
+    const res = await loadFieldOptions('mem0', 'userId', { apiKey: 'k' });
+    expect(res.ok).toBe(false);
   });
 });

@@ -6,7 +6,52 @@ export const anona = {
   keyPlaceholder: 'anona_live_...',
   fields: [
     { key: 'apiKey', label: 'API key', type: 'password', placeholder: 'anona_live_...', required: true },
-    { key: 'spaceId', label: 'Space', type: 'text', placeholder: 'default', required: true, default: 'default' },
+    {
+      key: 'spaceId',
+      label: 'Space',
+      type: 'text',
+      placeholder: 'default',
+      required: true,
+      default: 'default',
+      loadLabel: 'Load spaces',
+      // Typing a space id is legitimate — a record write creates the space if it
+      // does not exist — but it also means a typo silently becomes a new, empty
+      // space that looks like the real one. Listing the real ones makes the
+      // common case a choice instead of a spelling test.
+      async loadOptions(config) {
+        if (!config.apiKey) return { ok: false, message: 'Add your API key first.' };
+
+        let res;
+        try {
+          // No trailing slash: the gateway serves the slash-less collection
+          // route directly, precisely so callers do not meet a 307.
+          res = await fetch('https://api.anonalabs.com/v1/spaces', {
+            headers: { Authorization: `Bearer ${config.apiKey}` },
+          });
+        } catch (err) {
+          return { ok: false, message: `Could not reach Anona Memory. ${err.message ?? err}` };
+        }
+
+        let payload = null;
+        try { payload = await res.json(); } catch { /* leave null */ }
+
+        if (!res.ok) {
+          return { ok: false, message: payload?.error?.message ?? describeStatus(res.status) };
+        }
+
+        return {
+          ok: true,
+          options: (payload?.spaces ?? []).map((space) => ({
+            // qualified_id is set only when another org shared this space, and
+            // addressing by it is always safe — where the caller also owns a
+            // space of the same name, the bare form is refused as ambiguous.
+            value: space.qualified_id ?? space.space_id,
+            label: space.name || space.space_id,
+            note: space.shared_by ? `shared by ${space.shared_by}` : '',
+          })),
+        };
+      },
+    },
   ],
 
   buildRequest(capture, config) {

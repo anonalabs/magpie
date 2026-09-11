@@ -1,25 +1,55 @@
+/* magpie popup.
+   The scene: a 360px panel that opens over whatever the reader is reading, for
+   two seconds at a time. So it follows the browser's own theme rather than
+   picking one, and every state has to be legible before the text is read. */
+
 :root {
   --bg: #fbfaf8;
-  --surface: #fff;
-  --ink: #16150f;
-  --muted: #6f6a5d;
-  --line: #e4e0d6;
-  --accent: #1f6f4a;
-  --accent-ink: #fff;
-  --danger: #a5321f;
-  --radius: 8px;
+  --surface: #ffffff;
+  --sunken: #f2efe9;
+  --ink: #17160f;
+  --ink-soft: #55503f;
+  --muted: #7d7666;
+  --line: #e5e0d4;
+  --line-strong: #d6cfbe;
+
+  --accent: #1c6b46;
+  --accent-ink: #ffffff;
+  --accent-soft: #e4efe8;
+  --danger: #9c3418;
+  --danger-soft: #f6e6e0;
+
+  --mark-ground: #17160f;
+  --mark-swell: #f4f1ea;
+  --mark-dot: #3f9a6d;
+
+  --r-sm: 6px;
+  --r-md: 9px;
+  --r-lg: 12px;
+
+  --ease: cubic-bezier(.16, 1, .3, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #16150f;
-    --surface: #1e1d16;
-    --ink: #f3f1ea;
-    --muted: #9b9483;
-    --line: #322f25;
-    --accent: #4fae7d;
-    --accent-ink: #0e1a13;
-    --danger: #e5806c;
+    --bg: #14130e;
+    --surface: #1c1b14;
+    --sunken: #100f0a;
+    --ink: #f4f2ec;
+    --ink-soft: #cac3b2;
+    --muted: #948d7c;
+    --line: #2e2b21;
+    --line-strong: #413d2f;
+
+    --accent: #57b184;
+    --accent-ink: #0d1a13;
+    --accent-soft: #18281f;
+    --danger: #e08a72;
+    --danger-soft: #2a1912;
+
+    --mark-ground: #0b0a06;
+    --mark-swell: #f4f1ea;
+    --mark-dot: #57b184;
   }
 }
 
@@ -28,133 +58,315 @@
 body {
   width: 360px;
   margin: 0;
-  padding: 14px;
   background: var(--bg);
   color: var(--ink);
   font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
-header {
+main { padding: 14px 16px 16px; }
+
+/* ---------------------------------------------------------------- header -- */
+
+.bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line);
 }
+
+.brand { display: flex; align-items: center; gap: 8px; }
+.mark { width: 18px; height: 18px; border-radius: 4px; flex: none; }
 
 .wordmark {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
 }
 
-.icon-button {
-  background: none;
-  border: 0;
-  padding: 4px;
+/* Always says where a capture would go. It is the one fact the reader needs
+   before pressing, and it doubles as the way into settings. */
+.destination {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 190px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--ink-soft);
+  background: var(--sunken);
+  border: 1px solid transparent;
+  border-radius: 100px;
   cursor: pointer;
-  color: var(--muted);
-  font-size: 14px;
-  border-radius: 4px;
+  transition: color .15s var(--ease), border-color .15s var(--ease);
 }
-.icon-button:hover { color: var(--ink); background: var(--line); }
+.destination:hover { color: var(--ink); border-color: var(--line-strong); }
+.destination:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.destination > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.destination.unset { color: var(--muted); }
 
-.page {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 10px 12px;
-  margin-bottom: 12px;
+/* Full-bleed, like the browser's own loading line: visible from the corner of
+   the eye without reading anything. */
+.rail { height: 2px; background: var(--line); overflow: hidden; }
+
+/* Scaled, not resized: animating width relayouts the whole panel on every
+   progress tick, and these arrive several times a second during a download. */
+.rail-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform .45s var(--ease);
 }
-.page-title {
+.rail-fill.indeterminate {
+  transition: none;
+  animation: sweep 1.4s var(--ease) infinite;
+}
+@keyframes sweep {
+  0%   { transform: translateX(-100%) scaleX(.35); }
+  100% { transform: translateX(285%) scaleX(.35); }
+}
+
+/* --------------------------------------------------------------- subject -- */
+
+.subject { margin-bottom: 14px; }
+
+.subject-title {
+  font-size: 14px;
   font-weight: 600;
-  /* Titles are arbitrary length; clamp rather than let the popup grow. */
+  line-height: 1.35;
+  letter-spacing: -0.011em;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.page-url { color: var(--muted); font-size: 11px; margin-top: 3px; overflow-wrap: anywhere; }
 
-button.primary {
+.subject-host {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- states -- */
+
+.state { animation: rise .3s var(--ease) backwards; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state { animation: none; }
+  .rail-fill, .destination, button { transition: none; }
+  .rail-fill.indeterminate { animation: none; transform: scaleX(.45); }
+}
+
+/* The state is carried by a coloured field and a glyph, so which state you are
+   in is answered before the sentence is. */
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border-radius: var(--r-md);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.status.working { background: var(--sunken); color: var(--ink-soft); }
+.status.good { background: var(--accent-soft); color: var(--accent); }
+.status.bad { background: var(--danger-soft); color: var(--danger); }
+
+.status-text { flex: 1; min-width: 0; }
+.status-meta { font-size: 11px; font-weight: 500; color: var(--muted); }
+
+.tick {
+  display: grid;
+  place-items: center;
+  width: 17px; height: 17px;
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 100px;
+}
+.status.bad .tick { background: var(--danger); color: var(--bg); }
+
+.dot {
+  width: 7px; height: 7px;
+  flex: none;
+  margin: 0 5px;
+  border-radius: 100px;
+  background: var(--accent);
+  animation: pulse 1.3s var(--ease) infinite;
+}
+@keyframes pulse {
+  50% { opacity: .25; transform: scale(.7); }
+}
+@media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+
+.detail { margin: 0 0 10px; color: var(--ink-soft); font-size: 12px; }
+
+.summary {
+  margin: 0 0 10px;
+  padding: 11px 12px;
+  max-height: 168px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  white-space: pre-wrap;
+}
+
+.footnote { margin: 9px 0 0; font-size: 11px; color: var(--muted); }
+
+/* --------------------------------------------------------------- buttons -- */
+
+button { font: inherit; }
+
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
-  padding: 10px;
-  font: inherit;
+  padding: 11px 12px;
   font-weight: 600;
   color: var(--accent-ink);
   background: var(--accent);
   border: 0;
-  border-radius: var(--radius);
+  border-radius: var(--r-md);
   cursor: pointer;
+  transition: filter .15s var(--ease), transform .12s var(--ease);
 }
-button.primary:disabled { opacity: .5; cursor: default; }
-button.secondary {
-  width: 100%;
-  padding: 8px;
-  font: inherit;
-  color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  cursor: pointer;
-  margin-top: 6px;
-}
+.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.primary:active:not(:disabled) { transform: scale(.988); }
+.primary:disabled { opacity: .45; cursor: default; }
+.primary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.hint { color: var(--muted); font-size: 11px; margin-top: 8px; text-align: center; }
-.hint kbd {
+/* Teaching the shortcut where the shortcut is used, rather than in a footnote
+   nobody reads twice. */
+.primary kbd {
   font: inherit;
   font-size: 10px;
-  border: 1px solid var(--line);
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  padding: 1px 4px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  padding: 2px 6px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--accent-ink) 18%, transparent);
 }
 
-.stage { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
-.stage-name { font-weight: 600; }
-.stage-count { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-
-.bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
-.bar > div { height: 100%; background: var(--accent); transition: width .3s ease; }
-
-.receipt { border-left: 2px solid var(--accent); padding-left: 10px; }
-.receipt.bad { border-left-color: var(--danger); }
-.receipt h2 { font-size: 13px; margin: 0 0 4px; }
-.receipt p { margin: 0 0 6px; color: var(--muted); font-size: 12px; }
-.summary {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 10px;
-  font-size: 12px;
-  max-height: 170px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-}
-
-label { display: block; margin-bottom: 10px; }
-label > span { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
-input, select {
+.ghost {
   width: 100%;
+  padding: 9px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: border-color .15s var(--ease), color .15s var(--ease);
+}
+.ghost:hover { color: var(--ink); border-color: var(--line-strong); }
+.ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* -------------------------------------------------------------- settings -- */
+
+.group { margin-bottom: 18px; }
+.group > h2 {
+  margin: 0 0 9px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Two mutually exclusive answers to one question: a segmented control says that
+   in one line, where a stack of described radios said it in nine. */
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  padding: 3px;
+  background: var(--sunken);
+  border-radius: var(--r-md);
+}
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented label {
   padding: 7px 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--muted);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: color .15s var(--ease), background .15s var(--ease);
+}
+.segmented label:hover { color: var(--ink); }
+.segmented input:checked + label {
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / .1);
+}
+.segmented input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.field { display: block; margin-top: 11px; }
+.field-label { display: block; margin-bottom: 4px; font-size: 11px; color: var(--muted); }
+
+input[type="text"], input[type="password"], select {
+  width: 100%;
+  padding: 8px 9px;
   font: inherit;
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
+input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+input::placeholder { color: var(--muted); }
 
-.field-note { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+.field-note { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
+.field-note.bad { color: var(--danger); }
 
-fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; margin: 0 0 12px; }
-legend { font-size: 11px; color: var(--muted); padding: 0 4px; }
-.choice { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
-.choice:last-child { margin-bottom: 0; }
-.choice input { width: auto; margin-top: 2px; }
-.choice .body { flex: 1; }
-.choice .body b { display: block; font-weight: 600; }
-.choice .body small { color: var(--muted); }
+.field-row { display: flex; gap: 6px; align-items: stretch; }
+.field-row > input, .field-row > select { flex: 1; min-width: 0; }
 
-.warn { color: var(--danger); font-size: 11px; margin-top: 8px; }
+button.load {
+  flex: none;
+  padding: 0 10px;
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: color .15s var(--ease), border-color .15s var(--ease);
+}
+button.load:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+button.load:disabled { opacity: .55; cursor: default; }
+button.load:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.switch { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.switch input { margin: 2px 0 0; flex: none; accent-color: var(--accent); }
+.switch-body b { display: block; font-weight: 550; font-size: 12px; }
+.switch-body small { color: var(--muted); font-size: 11px; }
+
 [hidden] { display: none !important; }

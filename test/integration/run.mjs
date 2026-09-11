@@ -35,6 +35,16 @@ execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days
   '-subj', '/CN=api.anonalabs.com'], { stdio: 'ignore' });
 
 const received = [];
+const SPACES = {
+  spaces: [
+    { space_id: 'default', name: 'Default' },
+    { space_id: 'reading', name: 'Reading list' },
+    // Same bare name as the caller's own: only the qualified form can address it.
+    { space_id: 'default', name: 'Default', shared_by: 'Acme', qualified_id: 'acme:default' },
+  ],
+  total: 3,
+};
+
 const api = createHttps(
   { key: readFileSync(join(work, 'key.pem')), cert: readFileSync(join(work, 'cert.pem')) },
   (req, res) => {
@@ -42,6 +52,10 @@ const api = createHttps(
     req.on('data', (c) => (body += c));
     req.on('end', () => {
       received.push({ url: req.url, method: req.method, headers: req.headers, body: safeJson(body) });
+      if (req.method === 'GET' && req.url === '/v1/spaces') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify(SPACES));
+      }
       res.writeHead(201, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ job_id: 'job_test_1', status: 'processing' }));
     });
@@ -172,7 +186,7 @@ async function main() {
   check('receipt says which provider accepted it', raw?.result?.state === 'queued' && raw?.result?.providerLabel === 'Anona Memory',
     `${raw?.result?.providerLabel} / ${raw?.result?.state}`);
 
-  const sent = received.at(-1);
+  const sent = received.filter((r) => r.url === '/v1/record').at(-1);
   check('request reached the provider', Boolean(sent), sent ? `${sent.method} ${sent.url}` : 'nothing arrived');
   if (sent) {
     check('hits POST /v1/record', sent.method === 'POST' && sent.url === '/v1/record', sent.url);
@@ -195,12 +209,63 @@ async function main() {
   const emptyId = await evalIn(cdp, `
     const tabs = await chrome.tabs.query({});
     return tabs.find(t => (t.url ?? '').endsWith('/empty'))?.id ?? null;`);
-  const before = received.length;
+  const before = received.filter((r) => r.url === '/v1/record').length;
   const empty = await evalIn(cdp, `
     return await chrome.runtime.sendMessage({ target: 'background', type: 'START_CAPTURE', tabId: ${emptyId} });`);
   check('a page with no article fails clearly', empty?.state === 'error' && empty?.result?.code === 'no_article',
     empty?.result?.code ?? empty?.state);
-  check('and nothing is sent anywhere', received.length === before, `${received.length - before} extra requests`);
+  const after = received.filter((r) => r.url === '/v1/record').length;
+  check('and nothing is sent anywhere', after === before, `${after - before} extra writes`);
+
+  // ---- the space picker -------------------------------------------------
+  // A fresh popup, with a key already saved: the list should fill itself with no
+  // button press, because that is the ordinary case.
+  const { targetId: settingsTab } = await browser.send('Target.createTarget', { url: `chrome-extension://${extId}/popup.html` });
+  const cdpSettings = await waitFor(async () => {
+    const t = (await http('/json/list')).find((x) => x.id === settingsTab);
+    if (!t?.webSocketDebuggerUrl) return null;
+    const c = connect(t.webSocketDebuggerUrl); await c.ready; await c.send('Runtime.enable');
+    const { result } = await c.send('Runtime.evaluate', { expression: 'typeof chrome?.runtime?.id === "string"', returnByValue: true });
+    return result.value ? c : null;
+  }, 'the settings popup');
+
+  const picker = await evalIn(cdpSettings, `
+    document.getElementById('destination').click();
+    for (let i = 0; i < 40; i++) {
+      const el = document.getElementById('field-spaceId');
+      if (el && el.tagName === 'SELECT') {
+        return {
+          tag: el.tagName,
+          values: [...el.options].map(o => o.value),
+          labels: [...el.options].map(o => o.textContent),
+          selected: el.value,
+          note: document.getElementById('note-spaceId')?.textContent ?? '',
+        };
+      }
+      await new Promise(r => setTimeout(r, 250));
+    }
+    const el = document.getElementById('field-spaceId');
+    return { tag: el?.tagName ?? 'MISSING', values: [], labels: [], selected: el?.value, note: document.getElementById('note-spaceId')?.textContent ?? '' };`);
+
+  check('the space field becomes a picker on its own', picker.tag === 'SELECT', picker.tag);
+  check('it lists the real spaces', picker.values.slice(0, 3).join(','), picker.values.join(','));
+  check('a shared space is offered by its qualified id',
+    picker.values.includes('acme:default'), picker.values.join(','));
+  check('and is labelled with who shared it',
+    picker.labels.some((l) => l.includes('shared by Acme')), picker.labels.find((l) => l.includes('shared')) ?? 'none');
+  // The saved space is not one the account lists. It must survive anyway: it is
+  // created by the first write, and losing it on open would be silent.
+  check('a saved space that is not in the list survives', picker.selected === 'magpie-test', picker.selected);
+  check('and is marked as not existing yet',
+    picker.labels.some((l) => l === 'magpie-test — will be created'),
+    picker.labels.find((l) => l.includes('magpie-test')) ?? 'none');
+  check('typing a new name is still offered',
+    picker.labels.some((l) => l.startsWith('Type a different name')), 'ok');
+
+  const listed = received.filter((r) => r.url === '/v1/spaces');
+  check('the listing used a bearer key on the slash-less route',
+    listed.length > 0 && listed[0].headers.authorization === 'Bearer anona_live_testkey',
+    `${listed.length} call(s)`);
 
   // ---- distill with no WebGPU -----------------------------------------
   await evalIn(cdp, `

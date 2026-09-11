@@ -37,6 +37,22 @@ export function missingFields(provider, config = {}) {
  * host_permissions; a content script is not, and Anona's ALLOWED_ORIGINS does
  * not include chrome-extension:// origins.
  */
+/**
+ * Ask a provider to list the real values for one of its fields — Anona's spaces,
+ * today. Returns {ok:false, message} rather than throwing: a provider being
+ * unreachable must never be able to block configuring the extension, since
+ * typing the value by hand still works.
+ */
+export async function loadFieldOptions(providerId, fieldKey, config) {
+  const field = getProvider(providerId).fields.find((f) => f.key === fieldKey);
+  if (!field?.loadOptions) return { ok: false, message: 'Nothing to load for this field.' };
+  try {
+    return await field.loadOptions(config);
+  } catch (err) {
+    return { ok: false, message: String(err?.message ?? err) };
+  }
+}
+
 export async function push(providerId, capture, config) {
   const provider = getProvider(providerId);
 

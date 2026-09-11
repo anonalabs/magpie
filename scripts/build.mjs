@@ -30,6 +30,9 @@ const manifest = {
     'https://cdn-lfs.huggingface.co/*',
     'https://cdn-lfs-us-1.huggingface.co/*',
   ],
+  // The floating in-page button asks for this at the moment it is switched on,
+  // so the install prompt stays "no site access" for everyone who never does.
+  optional_host_permissions: ['<all_urls>'],
   background: { service_worker: 'background.js', type: 'module' },
   action: { default_popup: 'popup.html', default_title: 'Remember this page' },
   icons: { 16: 'icons/16.png', 48: 'icons/48.png', 128: 'icons/128.png' },
@@ -55,6 +58,8 @@ const entries = {
   'popup.js': { entry: join(SRC, 'popup.js'), format: 'esm' },
   // Injected by executeScript, which runs a classic script.
   'content-script.js': { entry: join(SRC, 'content-script.js'), format: 'iife' },
+  // Registered as a content script; also classic.
+  'in-page.js': { entry: join(SRC, 'in-page.js'), format: 'iife' },
 };
 
 async function build() {
