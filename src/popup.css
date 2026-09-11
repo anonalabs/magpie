@@ -379,6 +379,7 @@ button.load:focus-visible { outline: 2px solid var(--accent); outline-offset: 1p
 .switch input { margin: 2px 0 0; flex: none; accent-color: var(--accent); }
 .switch-body b { display: block; font-weight: 550; font-size: 12px; }
 .switch-body small { color: var(--muted); font-size: 11px; }
+.switch-body small.bad { color: var(--danger); }
 
 /* ----------------------------------------------------------------- sheet --
    The permission page shares these tokens but is a full browser tab, not a

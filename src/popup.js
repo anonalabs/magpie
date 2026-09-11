@@ -347,11 +347,26 @@ async function save() {
 const ALL_SITES = { origins: ['http://*/*', 'https://*/*'] };
 
 async function renderInPageToggle() {
-  const granted = await chrome.permissions.contains(ALL_SITES);
+  // Asked of the service worker rather than read locally, because "the
+  // permission is granted" and "the button is actually installed" are two
+  // different facts and only the second one puts a button on a page.
+  const status = await toBackground(MSG.IN_PAGE_STATUS).catch(() => null);
+  const granted = status?.granted ?? await chrome.permissions.contains(ALL_SITES);
+
   $('inpage').checked = granted;
-  $('inpage-note').textContent = granted
-    ? 'A magpie button sits in the corner of every page. Drag it to move it.'
-    : 'Needs permission to run on the pages you visit. Without it, use the toolbar or the shortcut.';
+  const note = $('inpage-note');
+  note.classList.toggle('bad', Boolean(status?.error) || (granted && status && !status.registered));
+
+  if (status?.error) {
+    note.textContent = `Allowed, but the button could not be installed: ${status.error}`;
+  } else if (granted && status && !status.registered) {
+    note.textContent = 'Allowed, but the button is not installed. Reload magpie at chrome://extensions.';
+  } else if (granted) {
+    note.textContent = 'A magpie button sits in the corner of every page. Drag it to move it, '
+      + 'or dismiss it per site with the ×.';
+  } else {
+    note.textContent = 'Needs permission to run on the pages you visit. Without it, use the toolbar or the shortcut.';
+  }
 }
 
 async function toggleInPage(event) {

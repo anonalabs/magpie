@@ -48,12 +48,25 @@ $('allow').onclick = async () => {
   // registration immediate rather than whenever the worker next wakes.
   const sync = await toBackground(MSG.SYNC_IN_PAGE);
 
-  // Say what happened to the tabs already open, because that is where the
-  // reader will look first and a content script normally reaches none of them.
-  const injected = sync?.injected ?? 0;
-  report('good', injected
-    ? `Done. The button is on ${injected} open tab${injected === 1 ? '' : 's'} already, and on every page from now on.`
-    : 'Done. Open any page and the button is in the corner.', true);
+  // Reported honestly. Announcing success here regardless of what came back is
+  // what previously turned a failed registration into "Done." plus no button.
+  if (sync?.error) {
+    return report('bad', `Chrome allowed it, but the button could not be installed: ${sync.error}`);
+  }
+  if (!sync?.granted) {
+    return report('bad', 'Chrome reported the permission as not granted. Try reloading the extension '
+      + 'at chrome://extensions and allowing again.');
+  }
+  if (!sync?.registered) {
+    return report('bad', 'The permission is granted but the button is not installed. Reload the '
+      + 'extension at chrome://extensions.');
+  }
+
+  // Say what happened to the tabs already open, because that is where the reader
+  // will look first and a content script normally reaches none of them.
+  report('good', sync.injected
+    ? `Done. The button is on ${sync.injected} open tab${sync.injected === 1 ? '' : 's'} already, and on every page from now on.`
+    : 'Done, but no open tab could take it — open a new page and look in the corner.', true);
 };
 
 $('close').onclick = () => window.close();

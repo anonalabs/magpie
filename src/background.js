@@ -148,32 +148,58 @@ async function captureState(tabId) {
  * only while the permission does, so revoking it genuinely removes the script
  * instead of leaving it declared and silently inert.
  */
+/**
+ * Brings the in-page button into line with the optional permission, and reports
+ * exactly what happened at every step.
+ *
+ * It never throws. It used to, and the caller reported "Done." regardless — so a
+ * failed registration produced a success message and no button, which is
+ * indistinguishable from the feature simply not working.
+ */
 async function syncInPage() {
-  const granted = await chrome.permissions.contains(IN_PAGE_ORIGINS);
+  const status = { granted: false, registered: false, injected: 0, error: null };
 
-  // Always cleared first, never "it exists so we are done". Registrations
-  // persist across sessions, so an old one made by a previous version survives
-  // an update — with that version's match patterns. Treating it as current left
-  // a registration that matched nothing, which looks exactly like the feature
-  // being broken.
-  await chrome.scripting.unregisterContentScripts({ ids: [IN_PAGE_SCRIPT_ID] }).catch(() => {});
-  if (!granted) return { registered: false };
+  try {
+    status.granted = await chrome.permissions.contains(IN_PAGE_ORIGINS);
 
-  await chrome.scripting.registerContentScripts([{
-    id: IN_PAGE_SCRIPT_ID,
-    js: ['in-page.js'],
-    matches: IN_PAGE_ORIGINS.origins,
-    runAt: 'document_idle',
-    // Top frame only: every ad slot and embedded player is also a frame.
-    allFrames: false,
-    persistAcrossSessions: true,
-  }]);
+    // Always cleared first, never "it exists so we are done". Registrations
+    // persist across sessions, so an old one made by a previous version survives
+    // an update — with that version's match patterns. Treating it as current
+    // left a registration that matched nothing.
+    await chrome.scripting.unregisterContentScripts({ ids: [IN_PAGE_SCRIPT_ID] }).catch(() => {});
+    if (!status.granted) return status;
 
-  // A content script only applies to pages loaded after it is registered, so
-  // without this the button appears on nothing already open — including the tab
-  // the reader was on when they turned it on, which is the one they will check.
-  const injected = await injectIntoOpenTabs();
-  return { registered: true, injected };
+    await chrome.scripting.registerContentScripts([{
+      id: IN_PAGE_SCRIPT_ID,
+      js: ['in-page.js'],
+      matches: IN_PAGE_ORIGINS.origins,
+      runAt: 'document_idle',
+      // Top frame only: every ad slot and embedded player is also a frame.
+      allFrames: false,
+      persistAcrossSessions: true,
+    }]);
+    status.registered = true;
+
+    // A content script only applies to pages loaded after it is registered, so
+    // without this the button appears on nothing already open — including the
+    // tab the reader was on when they turned it on.
+    status.injected = await injectIntoOpenTabs();
+  } catch (err) {
+    status.error = String(err?.message ?? err);
+  }
+
+  await chrome.storage.session.set({ inPageStatus: status }).catch(() => {});
+  return status;
+}
+
+/** The truth, for the settings panel: asked fresh rather than read from a cache. */
+async function inPageStatus() {
+  const granted = await chrome.permissions.contains(IN_PAGE_ORIGINS).catch(() => false);
+  const registered = (await chrome.scripting
+    .getRegisteredContentScripts({ ids: [IN_PAGE_SCRIPT_ID] })
+    .catch(() => [])).length > 0;
+  const last = (await chrome.storage.session.get('inPageStatus').catch(() => ({}))).inPageStatus ?? {};
+  return { granted, registered, error: last.error ?? null, injected: last.injected ?? 0 };
 }
 
 async function injectIntoOpenTabs() {
@@ -223,6 +249,8 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
       }, respond);
     case MSG.SYNC_IN_PAGE:
       return respondAsync(syncInPage, respond);
+    case MSG.IN_PAGE_STATUS:
+      return respondAsync(inPageStatus, respond);
     case MSG.GET_CAPTURE_STATE:
       return respondAsync(() => captureState(msg.tabId), respond);
     case MSG.PRELOAD_MODEL:

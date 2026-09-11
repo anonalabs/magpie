@@ -396,6 +396,19 @@ async function main() {
   const count = await evalIn(cdpOpen, "return document.querySelectorAll('#magpie-in-page-root').length;");
   check('and injecting again does not stack a second one', count === 1, `${count} button(s)`);
 
+  // ---- the status the settings panel reports ------------------------------
+  // Without the optional grant, the honest answer is "not granted, not
+  // installed" — and never a cheerful success.
+  const status = await evalIn(cdpSettings, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'IN_PAGE_STATUS' });`);
+  check('status reports the permission truthfully', status?.granted === false, JSON.stringify(status));
+
+  const failedSync = await evalIn(cdpSettings, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'SYNC_IN_PAGE' });`);
+  check('a sync without permission reports not-registered, not success',
+    failedSync?.granted === false && failedSync?.registered === false && failedSync?.error === null,
+    JSON.stringify(failedSync));
+
   // ---- a stale content-script registration --------------------------------
   // Registrations persist across sessions, so one made by a previous version
   // survives an update carrying that version's match patterns. syncInPage must
