@@ -107,22 +107,26 @@ const describeStored = (job) =>
 
 // Every failure with a way out offers it as a button, rather than naming the fix
 // in prose and leaving the reader to go find the setting.
+// A recovery acts on THIS capture and leaves your settings alone. Sending page
+// text is roughly 270x the content at the provider, and it is billed on that, so
+// a one-click button in an error dialog must not be able to make it permanent.
 const RECOVERIES = {
-  webgpu_unavailable: { label: 'Send the page text instead', run: async () => { await saveSettings({ mode: 'raw' }); start(); } },
-  raw: { label: 'Send the page text instead', run: async () => { await saveSettings({ mode: 'raw' }); start(); } },
+  webgpu_unavailable: { label: 'Send this page as text', run: () => start('raw') },
+  raw: { label: 'Send this page as text', run: () => start('raw') },
+  distill: { label: 'Summarise it on this device', run: () => start('distill') },
+  // The model size is not a per-capture thing; it is which model gets loaded.
   smaller_model: { label: 'Use the smaller model', run: async () => { await saveSettings({ modelSize: 'small' }); start(); } },
   not_configured: { label: 'Open settings', run: () => openSettings(true) },
-  distill: { label: 'Summarise it on this device', run: async () => { await saveSettings({ mode: 'distill' }); start(); } },
 };
 
 // ----------------------------------------------------------------- actions --
-async function start() {
+async function start(mode) {
   if (tabId == null) return;
   show('state-working');
   $('stage-name').textContent = 'Reading the page';
   $('stage-count').textContent = '';
   rail('indeterminate');
-  renderJob(await toBackground(MSG.START_CAPTURE, { tabId }));
+  renderJob(await toBackground(MSG.START_CAPTURE, { tabId, mode }));
 }
 
 let view = 'main';
@@ -564,9 +568,10 @@ async function renderShortcut() {
   // Wired first, before a single await. boot() makes several round trips, and a
   // click that lands in that window must not be swallowed — pressing the gear
   // the instant the popup opens is exactly when it is most likely to happen.
-  $('remember').onclick = start;
-  $('retry').onclick = start;
-  $('again').onclick = start;
+  // Bare `start` would receive the click event as its mode argument.
+  $('remember').onclick = () => start();
+  $('retry').onclick = () => start();
+  $('again').onclick = () => start();
   $('save').onclick = save;
   $('provider').onchange = renderProviderFields;
   $('model-size').onchange = renderModelNote;

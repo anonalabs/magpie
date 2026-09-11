@@ -65,9 +65,17 @@ async function extractActiveTab(tabId) {
   return result;
 }
 
-export async function startCapture(tabId) {
+/**
+ * `mode` overrides the setting for this capture alone and never writes it back.
+ * The recovery buttons use it: "Send the page text instead" used to call
+ * saveSettings, so one click in an error dialog silently moved every future
+ * capture to sending whole articles — 270x the content at the provider, and
+ * priced on it. A button that reads as "just this once" has to be just this once.
+ */
+export async function startCapture(tabId, mode) {
   badge(tabId, 'working');
   const settings = await loadSettings();
+  const effectiveMode = mode ?? settings.mode;
 
   let article;
   try {
@@ -90,12 +98,12 @@ export async function startCapture(tabId) {
     title: article.title,
     url: article.url,
     capturedAt: new Date().toISOString(),
-    mode: settings.mode,
+    mode: effectiveMode,
     providerId: settings.providerId,
     destination: describeDestination(settings),
   };
 
-  if (settings.mode === 'raw') {
+  if (effectiveMode === 'raw') {
     // No model and no offscreen document: straight into the queue.
     return jobFromRecord(await commit({ ...base, content: article.text, kind: 'article text' }));
   }
@@ -319,7 +327,7 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
 
   switch (msg.type) {
     case MSG.START_CAPTURE:
-      return respondAsync(() => startCapture(msg.tabId), respond);
+      return respondAsync(() => startCapture(msg.tabId, msg.mode), respond);
     case MSG.START_CAPTURE_FROM_PAGE:
       // The page never names a tab; the only trustworthy id is the sender's.
       return respondAsync(async () => {

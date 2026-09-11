@@ -211,6 +211,35 @@ async function main() {
       sent.body.metadata?.title);
   }
 
+  // ---- a one-off mode must not become the setting -------------------------
+  // "Send the page text instead" is offered from an error dialog. Sending raw is
+  // ~270x the content at the provider and is billed on it, so a click there must
+  // not move every future capture onto that path.
+  await evalIn(cdp, `
+    const s = (await chrome.storage.local.get('settings')).settings;
+    await chrome.storage.local.set({ settings: { ...s, mode: 'distill' } });
+    return true;`);
+
+  const beforeOneOff = received.filter((r) => r.url === '/v1/record').length;
+  const oneOff = await evalIn(cdp, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'START_CAPTURE', tabId: ${tabId}, mode: 'raw' });`);
+  const modeAfter = await evalIn(cdp, `
+    return (await chrome.storage.local.get('settings')).settings.mode;`);
+  const oneOffBody = received.filter((r) => r.url === '/v1/record').at(-1)?.body;
+
+  check('a one-off raw capture really sends the article text',
+    received.filter((r) => r.url === '/v1/record').length > beforeOneOff && oneOffBody?.content?.length > 1000,
+    `${oneOffBody?.content?.length ?? 0} chars, state ${oneOff?.state}`);
+  check('and the saved mode is untouched', modeAfter === 'distill', modeAfter);
+  check('the capture records the mode it actually used', oneOffBody?.metadata?.mode === 'raw', oneOffBody?.metadata?.mode);
+
+  // Back to raw for the sections below: they exercise the queue, and distilling
+  // needs a WebGPU device this Chrome does not have.
+  await evalIn(cdp, `
+    const s = (await chrome.storage.local.get('settings')).settings;
+    await chrome.storage.local.set({ settings: { ...s, mode: 'raw' } });
+    return true;`);
+
   // ---- durability: a failed write is kept, not lost ----------------------
   const capture = async () => evalIn(cdp, `
     return await chrome.runtime.sendMessage({ target: 'background', type: 'START_CAPTURE', tabId: ${tabId} });`);

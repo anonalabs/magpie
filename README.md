@@ -106,6 +106,19 @@ body the API refuses — stop immediately instead of hammering; they land in
 content and keeps only metadata, so magpie can tell you it already saved a page
 without keeping a second copy of everything you have read.
 
+**A recovery is for one capture, not a setting.** "Send this page as text" sends
+that page raw and leaves your mode alone. Raw is roughly **270x the content** at
+the provider — 93,000 characters against 345 — and providers bill on what they
+extract, so a one-click button in an error dialog must never be able to move
+every future capture onto that path.
+
+**Retries can duplicate, deliberately.** A write that times out or returns 5xx
+may already have landed, so retrying it can create a second memory. magpie
+retries anyway: losing a capture is worse than duplicating one, and a duplicate
+is visible in history and in the revisit notice. Supermemory is unaffected, since
+its `customId` updates in place. This is a decision, not an oversight — the
+opposite call is defensible and is the one Anona's own email failover makes.
+
 **Everything is chunked.** Both models have a 4096-token context. After reserving
 150 tokens for the prompt, 350 for the answer and a little slack, an article gets
 **3,500 tokens — about 14,000 characters — per call**, so a normal article does
