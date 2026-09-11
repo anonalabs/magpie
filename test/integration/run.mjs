@@ -351,6 +351,51 @@ async function main() {
       captured ? `${captured} write(s) reached the provider` : 'no write ever arrived');
   }
 
+  // ---- appearing on a tab that was already open ---------------------------
+  // What injectIntoOpenTabs does after the permission is granted. Without it the
+  // button reaches nothing already open, including the tab the reader is on.
+  // Clear the registration left by the previous section, so this tab genuinely
+  // opens with no content script and "before" means before.
+  await evalIn(cdpSettings, `
+    await chrome.scripting.unregisterContentScripts({ ids: ['magpie-in-page'] }).catch(() => {});
+    return true;`);
+
+  const { targetId: openTab } = await browser.send('Target.createTarget', { url: `http://127.0.0.1:${PORT_WEB}/` });
+  const cdpOpen = await waitFor(async () => {
+    const t = (await http('/json/list')).find((x) => x.id === openTab);
+    if (!t?.webSocketDebuggerUrl) return null;
+    const c = connect(t.webSocketDebuggerUrl); await c.ready; await c.send('Runtime.enable');
+    return c;
+  }, 'an already-open tab');
+
+  const openTabId = await evalIn(cdpSettings, `
+    const tabs = await chrome.tabs.query({});
+    return tabs.filter(t => (t.url ?? '').startsWith('http://127.0.0.1:${PORT_WEB}/')).pop()?.id ?? null;`);
+
+  const beforeInject = await evalIn(cdpOpen, "return Boolean(document.getElementById('magpie-in-page-root'));");
+  check('a tab open before the grant has no button', beforeInject === false, String(beforeInject));
+
+  await evalIn(cdpSettings, `
+    await chrome.scripting.executeScript({ target: { tabId: ${openTabId} }, files: ['in-page.js'] });
+    return true;`);
+
+  const afterInject = await waitFor(async () => {
+    const { result } = await cdpOpen.send('Runtime.evaluate', {
+      expression: "Boolean(document.getElementById('magpie-in-page-root'))", returnByValue: true,
+    });
+    return result.value ? true : null;
+  }, 'the injected button', 20).catch(() => false);
+
+  check('injecting reaches it without a page reload', afterInject === true, String(afterInject));
+
+  // Injecting twice must not stack two buttons on one page.
+  await evalIn(cdpSettings, `
+    await chrome.scripting.executeScript({ target: { tabId: ${openTabId} }, files: ['in-page.js'] });
+    return true;`);
+  await sleep(600);
+  const count = await evalIn(cdpOpen, "return document.querySelectorAll('#magpie-in-page-root').length;");
+  check('and injecting again does not stack a second one', count === 1, `${count} button(s)`);
+
   // ---- a stale content-script registration --------------------------------
   // Registrations persist across sessions, so one made by a previous version
   // survives an update carrying that version's match patterns. syncInPage must
