@@ -406,6 +406,7 @@ async function main() {
   check('and names a code that can be reported',
     Boolean(shapeless?.result?.code ?? shapeless?.code), shapeless?.result?.code ?? shapeless?.code ?? 'none');
 
+
   // ---- a page with nothing to read -------------------------------------
   const { targetId: emptyTab } = await browser.send('Target.createTarget', { url: `http://127.0.0.1:${PORT_WEB}/empty` });
   await sleep(1000);

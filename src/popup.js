@@ -97,11 +97,12 @@ function renderJob(job) {
       rail('off');
       show('state-error');
       const result = job.result ?? {};
-      // The code rides along because "Could not remember this" on its own is not
-      // something anyone can act on, or report.
-      $('error-detail').textContent = result.message
-        ? (result.code ? `${result.message} (${result.code})` : result.message)
-        : `Something went wrong${result.code ? ` (${result.code})` : ''}.`;
+
+      // An error with no reason in it is worse than no error: it ends the
+      // conversation. If nothing named a cause, say that plainly and say what
+      // state produced it, so there is always something to act on.
+      lastError = job;
+      $('error-detail').textContent = describeFailure(job, result);
       const recover = RECOVERIES[result.recover ?? result.code];
       $('recover').hidden = !recover;
       if (recover) {
@@ -112,6 +113,17 @@ function renderJob(job) {
       }
     }
   }
+}
+
+let lastError = null;
+
+function describeFailure(job, result) {
+  if (result.message) return result.code ? `${result.message} (${result.code})` : result.message;
+  if (result.code) return `Something went wrong (${result.code}).`;
+  // Nothing named a cause. Name the shape instead — it is what tells us which
+  // path produced it.
+  return `Something went wrong, and nothing said what (state: ${job.state ?? 'none'}). `
+    + 'Press Copy details.';
 }
 
 const describeStored = (job) =>
@@ -676,6 +688,24 @@ async function renderShortcut() {
   // Bare `start` would receive the click event as its mode argument.
   $('remember').onclick = () => start();
   $('retry').onclick = () => start();
+  $('copy-error').onclick = async () => {
+    const details = {
+      job: lastError,
+      page: { url: tabUrl, title: $('page-title').textContent },
+      settings: { mode: settings?.mode, modelSize: settings?.modelSize, providerId: settings?.providerId },
+      webgpu: Boolean(navigator.gpu),
+      version: chrome.runtime.getManifest().version,
+      chrome: navigator.userAgent.match(/Chrome\/[\d.]+/)?.[0] ?? 'unknown',
+    };
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(details, null, 2));
+      $('copy-error').textContent = 'Copied';
+      setTimeout(() => { $('copy-error').textContent = 'Copy details'; }, 2000);
+    } catch {
+      // Clipboard can be refused; showing it is still better than losing it.
+      $('error-detail').textContent = JSON.stringify(details);
+    }
+  };
   $('again').onclick = () => start();
   $('save').onclick = save;
   $('provider').onchange = renderProviderFields;
