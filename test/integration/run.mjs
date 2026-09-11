@@ -16,6 +16,7 @@ import { mkdtempSync, readFileSync, writeFileSync, cpSync, rmSync, mkdirSync } f
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { makePdf } from './make-pdf.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -69,7 +70,13 @@ const api = createHttps(
   },
 ).listen(PORT_API);
 
+const PDFS = { '/short.pdf': makePdf(3), '/long.pdf': makePdf(45) };
+
 const web = createServer((req, res) => {
+  if (PDFS[req.url]) {
+    res.writeHead(200, { 'content-type': 'application/pdf' });
+    return res.end(PDFS[req.url]);
+  }
   const name = req.url === '/empty' ? 'empty.html' : 'article.html';
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
   res.end(readFileSync(join(HERE, 'fixtures', name)));
@@ -333,6 +340,56 @@ async function main() {
   // is what makes a long quote arrive whole.
   check('a long selection is read whole, past Chrome\'s truncation limit',
     selectionLength > 5000, `${selectionLength} chars`);
+
+  // ---- PDFs ---------------------------------------------------------------
+  // Chrome renders these in a viewer no content script can enter, so this path
+  // fetches and parses the file instead. Raw mode, because parsing is what is
+  // under test and distilling would need a GPU this Chrome does not have.
+  const capturePdf = async (path) => {
+    const { targetId: pdfTarget } = await browser.send('Target.createTarget', { url: `http://127.0.0.1:${PORT_WEB}${path}` });
+    await sleep(1500);
+    const pdfTabId = await evalIn(cdp, `
+      const tabs = await chrome.tabs.query({});
+      return tabs.find(t => (t.url ?? '').endsWith(${JSON.stringify(path)}))?.id ?? null;`);
+    if (pdfTabId == null) return { job: null, tabId: null };
+    const job = await evalIn(cdp, `
+      await chrome.runtime.sendMessage({ target: 'background', type: 'START_CAPTURE', tabId: ${pdfTabId} });
+      let last = null;
+      for (let i = 0; i < 60; i++) {
+        last = await chrome.runtime.sendMessage({ target: 'background', type: 'GET_CAPTURE_STATE', tabId: ${pdfTabId} });
+        if (last && ['remembered', 'queued', 'error'].includes(last.state)) return last;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      // Saying what it was actually stuck on beats saying "timeout".
+      return { state: 'timeout', stuckAt: last?.state ?? 'nothing', stage: last?.stage ?? '' };`);
+    await browser.send('Target.closeTarget', { targetId: pdfTarget }).catch(() => {});
+    return { job, tabId: pdfTabId };
+  };
+
+  const shortPdf = await capturePdf('/short.pdf');
+  check('a PDF tab captures instead of reporting an unreadable page',
+    shortPdf.job?.state === 'remembered',
+    `${shortPdf.job?.state}${shortPdf.job?.stuckAt ? ` (stuck at ${shortPdf.job.stuckAt}: ${shortPdf.job.stage})` : ''} ${shortPdf.job?.result?.message ?? ''}`);
+
+  const shortBody = received.filter((r) => r.url === '/v1/record').at(-1)?.body;
+  check('the text inside the PDF arrives',
+    shortBody?.content?.includes('marker-1-end') && shortBody?.content?.includes('marker-3-end'),
+    `${shortBody?.content?.length ?? 0} chars`);
+  check('a short PDF carries no truncation notice',
+    !shortBody?.content?.includes('Summarised from the first'), 'none');
+  check('and is marked as a pdf', shortBody?.metadata?.source_kind === 'pdf', shortBody?.metadata?.source_kind);
+
+  const longPdf = await capturePdf('/long.pdf');
+  const longBody = received.filter((r) => r.url === '/v1/record').at(-1)?.body;
+  check('a long PDF is capped', longPdf.job?.state === 'remembered', longPdf.job?.state);
+  check('and says so in the content, where recall will see it',
+    longBody?.content?.includes('(Summarised from the first 40 of 45 pages.)'),
+    longBody?.content?.slice(-60));
+  check('the pages it read are recorded too',
+    longBody?.metadata?.pages_read === 40 && longBody?.metadata?.pages_total === 45,
+    `${longBody?.metadata?.pages_read}/${longBody?.metadata?.pages_total}`);
+  check('and nothing past the cap was read',
+    longBody?.content?.includes('marker-40-end') && !longBody?.content?.includes('marker-41-end'), 'capped');
 
   // ---- a page with nothing to read -------------------------------------
   const { targetId: emptyTab } = await browser.send('Target.createTarget', { url: `http://127.0.0.1:${PORT_WEB}/empty` });

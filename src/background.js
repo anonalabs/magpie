@@ -13,6 +13,7 @@ import { MODELS } from './lib/models.js';
 import * as captures from './lib/captures.js';
 import { settle } from './lib/queue.js';
 import { composeContent } from './lib/compose.js';
+import { looksLikePdf } from './lib/pdf-text.js';
 
 const DRAIN_ALARM = 'magpie-drain';
 const IN_PAGE_SCRIPT_ID = 'magpie-in-page';
@@ -77,6 +78,26 @@ export async function startCapture(tabId, mode) {
   badge(tabId, 'working');
   const settings = await loadSettings();
   const effectiveMode = mode ?? settings.mode;
+
+  // Chrome shows PDFs in a viewer no content script can enter, so injection is
+  // skipped entirely rather than attempted and reported as an unreadable page.
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (tab?.url && looksLikePdf(tab.url)) {
+    await ensureOffscreen();
+    return toOffscreen(MSG.RUN_PDF, {
+      job: {
+        tabId,
+        title: tab.title || tab.url,
+        url: tab.url,
+        capturedAt: new Date().toISOString(),
+        mode: effectiveMode,
+        sourceKind: 'pdf',
+        providerId: settings.providerId,
+        destination: describeDestination(settings),
+      },
+      model: MODELS[settings.modelSize] ?? MODELS.small,
+    });
+  }
 
   let article;
   try {
@@ -153,6 +174,8 @@ async function send(record) {
     mode: record.mode,
     note: record.note,
     sourceKind: record.sourceKind,
+    pagesRead: record.pagesRead,
+    pagesTotal: record.pagesTotal,
   }, config);
 
   const settled = settle(record, result);
@@ -500,7 +523,12 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     case MSG.ENQUEUE:
       // Sent by the offscreen document once a summary exists. It cannot reach
       // chrome.storage itself, and this message is what wakes the worker.
-      return respondAsync(() => commit(msg.record), respond);
+      //
+      // Answered in the job shape, not as the stored record. Returning the
+      // record handed back state "done", which the popup has no case for, so
+      // every successful distill rendered as a failure — and only the distill
+      // path, because raw mode is wrapped on the way out of startCapture.
+      return respondAsync(async () => jobFromRecord(await commit(msg.record)), respond);
     case MSG.LIST_CAPTURES:
       return respondAsync(captures.readAll, respond);
     case MSG.RETRY_CAPTURE:

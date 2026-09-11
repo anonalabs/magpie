@@ -67,6 +67,9 @@ const entries = {
   'content-script.js': { entry: join(SRC, 'content-script.js'), format: 'iife' },
   // Registered as a content script; also classic.
   'in-page.js': { entry: join(SRC, 'in-page.js'), format: 'iife' },
+  // pdf.js runs its parser in a worker. MV3 refuses a worker built from a data:
+  // URI, so it ships as a file of its own and is loaded by runtime URL.
+  'pdf.worker.js': { entry: join(ROOT, 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'), format: 'esm' },
 };
 
 async function build() {

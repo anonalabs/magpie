@@ -43,5 +43,12 @@ export function captureMetadata(capture) {
   // stays exactly what it was.
   if (capture.sourceKind && capture.sourceKind !== 'page') metadata.source_kind = capture.sourceKind;
 
+  // How much of a long document this actually covers. The content says so too;
+  // this is for anything reading the record rather than the memory.
+  if (capture.pagesTotal) {
+    metadata.pages_read = capture.pagesRead;
+    metadata.pages_total = capture.pagesTotal;
+  }
+
   return metadata;
 }

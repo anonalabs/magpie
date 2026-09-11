@@ -11,6 +11,16 @@ import { MSG, TO_OFFSCREEN, respondAsync, toBackground } from './lib/messages.js
 import { planSummarisation, reducePlan } from './lib/chunk.js';
 import { appConfigFor } from './lib/models.js';
 import { isDeviceLost } from './lib/gpu.js';
+// The legacy build, deliberately. The modern one calls
+// Uint8Array.prototype.toHex without defining it — a very recent method that
+// Chrome did not have until long after this extension's floor of 116, so the
+// modern build fails on any browser magpie claims to support. Only the legacy
+// build ships the polyfill.
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { pdfBody, MAX_PAGES } from './lib/pdf-text.js';
+
+// A file, not a data: URI — MV3's CSP refuses the latter.
+pdfjs.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.js');
 
 const jobs = new Map();        // tabId -> job state, the record the popup reads
 
@@ -114,6 +124,93 @@ async function rawComplete(engineRef, prompt) {
     max_tokens: 350,
   });
   return (res.choices?.[0]?.message?.content ?? '').trim();
+}
+
+// ------------------------------------------------------------------- pdf ----
+/**
+ * Reads a PDF that Chrome is displaying in its own viewer.
+ *
+ * Content scripts cannot be injected into that viewer, so the file is fetched
+ * and parsed here rather than read off the page. This document has a DOM, which
+ * pdf.js needs, and already owns long-running work.
+ */
+async function extractPdf(url) {
+  let bytes;
+  try {
+    // Credentials included: a paper behind a session cookie is a normal case,
+    // and without them it comes back as a login page rather than a paper.
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) throw new Error(`the server answered ${res.status}`);
+    bytes = new Uint8Array(await res.arrayBuffer());
+  } catch (err) {
+    const local = url.startsWith('file://');
+    const error = new Error(local
+      ? 'Chrome blocks extensions from reading local files until you allow it: '
+        + 'open chrome://extensions, click Details on magpie, and turn on "Allow access to file URLs".'
+      : `Could not download this PDF. ${err.message ?? err}`);
+    error.code = local ? 'pdf_file_access' : 'pdf_fetch_failed';
+    throw error;
+  }
+
+  let doc;
+  try {
+    doc = await pdfjs.getDocument({ data: bytes, isEvalSupported: false, useWorkerFetch: false }).promise;
+  } catch (err) {
+    const error = new Error(/password/i.test(String(err?.message))
+      ? 'This PDF is password-protected, so magpie cannot read it.'
+      : `Could not open this PDF. ${err?.message ?? err}`);
+    error.code = 'pdf_unreadable';
+    throw error;
+  }
+
+  const pages = [];
+  for (let number = 1; number <= Math.min(doc.numPages, MAX_PAGES); number++) {
+    const page = await doc.getPage(number);
+    const content = await page.getTextContent();
+    // hasEOL marks a line end; without it every page is one unbroken run and
+    // the chunker has no boundary finer than the page to cut on.
+    pages.push(content.items.map((item) => (item.hasEOL ? `${item.str}\n` : item.str)).join(' ').trim());
+  }
+
+  const body = pdfBody(pages, doc.numPages);
+  if (!body.text.replace(/\(Summarised from[^)]*\)/, '').trim()) {
+    const error = new Error('This PDF has no text in it — it looks scanned. Reading that needs OCR, which magpie does not do.');
+    error.code = 'pdf_no_text';
+    throw error;
+  }
+  return body;
+}
+
+async function runPdf({ job: incoming, model }) {
+  const running = jobs.get(incoming.tabId);
+  if (running && RUNNING.has(running.state)) return running;
+
+  const job = { ...incoming, state: 'starting', stage: 'Reading the PDF', step: 0, totalSteps: 0, result: null };
+  jobs.set(job.tabId, job);
+  update(job, {});
+
+  let body;
+  try {
+    body = await extractPdf(incoming.url);
+  } catch (err) {
+    return update(job, {
+      state: 'error', stage: 'Failed',
+      result: { ok: false, code: err.code ?? 'pdf_failed', message: err.message },
+    });
+  }
+
+  const pdfMeta = { pagesRead: body.pagesRead, pagesTotal: body.pagesTotal };
+
+  // Raw mode has nothing to distil: the text goes as it is.
+  if (incoming.mode === 'raw') {
+    update(job, { state: 'writing', stage: 'Saving' });
+    const settled = await handOff({
+      ...incoming, content: body.text, chars: body.text.length, kind: 'PDF text', ...pdfMeta,
+    });
+    return update(job, settled);
+  }
+
+  return runDistill({ job: { ...job, text: body.text, ...pdfMeta }, model });
 }
 
 // ------------------------------------------------------------------ jobs ----
@@ -273,6 +370,8 @@ async function runDistill({ job: incoming, model, draft = false }) {
       content: summary,
       chars: summary.length,
       kind: 'summary',
+      pagesRead: job.pagesRead,
+      pagesTotal: job.pagesTotal,
     });
 
     // The worker answers in the shape the popup already renders; the summary
@@ -335,6 +434,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
   if (msg?.target !== TO_OFFSCREEN) return false;
 
   switch (msg.type) {
+    case MSG.RUN_PDF:
+      runPdf(msg);
+      return respondAsync(async () => jobs.get(msg.job.tabId) ?? { tabId: msg.job.tabId, state: 'starting' }, respond);
     case MSG.RUN_DISTILL:
       // Deliberately not awaited: the reply goes back now with the initial job
       // state, and the work continues here after the caller (and the service

@@ -35,6 +35,17 @@ const INFORMATIONAL = [
   'https://raw.githubusercontent.com',
 ];
 
+// XML namespaces are URIs by convention and are never dereferenced — they are
+// identifiers that happen to be spelled like addresses. A vendored parser is
+// full of them, and failing on those would mean either deleting this check or
+// ignoring it, which are the same thing.
+const NAMESPACE_HOSTS = new Set([
+  'www.w3.org', 'ns.adobe.com', 'www.xfa.org',
+  'purl.org', 'iptc.org', 'example.com', 'foo.bar',   // pdf.js sample and spec strings
+  'github.com',                                       // core-js license notice, shipped in its polyfills
+  'a', 'b', 'x',                                      // core-js URL-parser conformance strings
+]);
+
 const CODE_EXT = /\.(wasm|js|mjs|cjs)(\?|$)/i;
 
 const files = readdirSync(DIST, { recursive: true })
@@ -51,6 +62,10 @@ for (const file of files) {
     // Chrome match patterns ("http://*/*") parse as URLs but address nothing —
     // they are permission and content-script declarations, and cannot fetch.
     if (parsed.hostname.includes('*')) continue;
+    // A template placeholder is not an address; it is assembled at runtime and
+    // cannot be judged from here. The code-extension rule below still applies.
+    if (url.includes('${')) continue;
+    if (NAMESPACE_HOSTS.has(parsed.hostname) && !CODE_EXT.test(url)) continue;
 
     const origin = parsed.origin;
     if (INFORMATIONAL.includes(origin) && !CODE_EXT.test(url)) continue;

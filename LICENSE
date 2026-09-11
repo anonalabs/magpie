@@ -24,3 +24,6 @@ SOFTWARE.
 
 This product bundles Readability.js, from Mozilla, which is licensed under the
 Mozilla Public License 2.0. See https://github.com/mozilla/readability.
+
+This product bundles pdf.js, from Mozilla, which is licensed under the Apache
+License 2.0. See https://github.com/mozilla/pdf.js.

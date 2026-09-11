@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.79",
-    "@mozilla/readability": "^0.6.0"
+    "@mozilla/readability": "^0.6.0",
+    "pdfjs-dist": "^5.7.284"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
