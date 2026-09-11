@@ -11,6 +11,7 @@ import { MSG, TO_OFFSCREEN, respondAsync, toBackground } from './lib/messages.js
 import { planSummarisation, reducePlan } from './lib/chunk.js';
 import { appConfigFor } from './lib/models.js';
 import { isDeviceLost, isGpuFault } from './lib/gpu.js';
+import { createEnginePool } from './lib/engine-pool.js';
 // The legacy build, deliberately. The modern one calls
 // Uint8Array.prototype.toHex without defining it — a very recent method that
 // Chrome did not have until long after this extension's floor of 116, so the
@@ -24,22 +25,6 @@ pdfjs.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.js');
 
 const jobs = new Map();        // tabId -> job state, the record the popup reads
 
-// The engine is addressed as a promise, never as "a variable that will be set
-// soon". Two captures started close together used to race: the second awaited
-// the first's load, resumed before the first had assigned its result, saw no
-// engine, and started a second full load. That produced two engines fighting
-// over one GPU device — the first one's handle then answering
-// "Model not loaded before trying to complete ChatCompletionRequest" — and it
-// paid the multi-minute load twice.
-let enginePromise = null;
-let engineModelId = null;
-let engine = null;             // resolved value, for status reporting only
-
-// Load progress belongs to whoever is waiting, and several jobs may be.
-const progressListeners = new Set();
-
-// ---------------------------------------------------------------- engine ----
-
 /**
  * A one-model appConfig whose model_lib points at the copy inside the extension.
  * Chrome treats a .wasm fetched from a CDN as remotely-hosted code, which is a
@@ -49,22 +34,12 @@ function localAppConfig(model) {
   return appConfigFor(model, chrome.runtime.getURL(`wasm/${model.libFile}`));
 }
 
-function getEngine(model) {
-  // Already loaded, or already loading, for this exact model: share it.
-  if (enginePromise && engineModelId === model.id) return enginePromise;
-
-  const previous = enginePromise;
-  engineModelId = model.id;
-
-  enginePromise = (async () => {
-    // A model switch tears the old engine down first — two resident models will
-    // not fit in the video memory the small one was chosen to respect.
-    if (previous) {
-      const old = await previous.catch(() => null);
-      await old?.unload?.().catch(() => {});
-      engine = null;
-    }
-
+// Loading, sharing, discarding and queueing all live in engine-pool.js, where
+// they can be tested. They produced the same class of bug twice here — a handle
+// used after the engine behind it was gone — and neither time was catchable in
+// this file, because it only runs behind WebGPU.
+const pool = createEnginePool({
+  create: async (model, { onProgress }) => {
     if (!navigator.gpu) {
       const err = new Error('This browser or GPU does not support WebGPU.');
       err.code = 'webgpu_unavailable';
@@ -75,21 +50,17 @@ function getEngine(model) {
     // evictable, and eviction looks like a download that never sticks.
     navigator.storage?.persist?.().catch(() => {});
 
-    engine = await CreateMLCEngine(model.id, {
+    return CreateMLCEngine(model.id, {
       appConfig: localAppConfig(model),
-      initProgressCallback: (p) => { for (const fn of progressListeners) { try { fn(p); } catch { /* a dead listener must not stop a load */ } } },
+      initProgressCallback: onProgress,
     });
-    return engine;
-  })();
+  },
+});
 
-  // A rejected promise must not be cached, or one failed load makes every later
-  // capture fail instantly with a stale error and no way to retry.
-  enginePromise.catch(() => {
-    if (engineModelId === model.id) { enginePromise = null; engineModelId = null; engine = null; }
-  });
-
-  return enginePromise;
-}
+// Load progress belongs to whoever is waiting, and several jobs may be.
+const progressListeners = pool.listeners;
+const getEngine = (model) => pool.get(model);
+const discardEngine = () => pool.discard();
 
 // ------------------------------------------------------------- prompting ----
 const SYSTEM = 'You summarise web pages. Be factual and concise. Never invent details that are not in the text. Reply with the summary only, no preamble.';
@@ -103,19 +74,9 @@ const prompts = {
     `These are section summaries of one article, in order. Write a single 4-6 sentence summary of the whole article. Do not refer to "sections" or to the summarising process.\n\nTitle: ${title}\n\n${text}`,
 };
 
-// One engine, one GPU, one completion at a time. Overlapping requests on a
-// single WebLLM engine interleave on the same KV cache, so they are queued
-// rather than issued concurrently — two captures at once are otherwise a way to
-// get two wrong summaries instead of one right one.
-let inferenceQueue = Promise.resolve();
-
-function complete(engineRef, prompt) {
-  const run = inferenceQueue.then(() => rawComplete(engineRef, prompt));
-  // The queue tracks ordering, not outcomes: one failure must not poison every
-  // request behind it.
-  inferenceQueue = run.then(() => {}, () => {});
-  return run;
-}
+// One engine, one GPU, one request at a time — and always the engine that
+// exists when the request runs, never the one that existed when it was queued.
+const complete = (model, prompt) => pool.run(model, (engine) => rawComplete(engine, prompt));
 
 async function rawComplete(engineRef, prompt) {
   const res = await engineRef.chat.completions.create({
@@ -310,10 +271,12 @@ async function runDistill({ job: incoming, model, draft = false }) {
     // the next one.
     const ask = async (prompt, stage, step) => {
       for (let attempt = 0; ; attempt++) {
-        const engineRef = await getEngine(model);
+        // Waited on here so the load reports progress; the call itself resolves
+        // the engine again inside the queue, which is the one that counts.
+        await getEngine(model);
         update(job, { state: 'summarising', loadProgress: 1, stage, ...(step ? { step } : {}) });
         try {
-          return await complete(engineRef, prompt);
+          return await complete(model, prompt);
         } catch (err) {
           // Any GPU-level fault leaves the engine suspect, and it is cached —
           // so without this, one fault breaks every capture until the extension
@@ -386,15 +349,6 @@ async function runDistill({ job: incoming, model, draft = false }) {
   }
 }
 
-function discardEngine() {
-  const dying = enginePromise;
-  enginePromise = null;
-  engineModelId = null;
-  engine = null;
-  // Best effort. The device is already gone, so this usually throws.
-  dying?.then((old) => old?.unload?.().catch(() => {}), () => {});
-}
-
 /** Turn an engine failure into something with a recovery action attached. */
 function classify(err, model) {
   const message = String(err?.message ?? err);
@@ -458,10 +412,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
     case MSG.PRELOAD_MODEL:
       return respondAsync(async () => {
         await getEngine(msg.model);
-        return { ok: true, modelId: engineModelId };
+        return { ok: true, ...pool.status() };
       }, respond);
     case MSG.ENGINE_STATUS:
-      return respondAsync(async () => ({ loaded: Boolean(engine), modelId: engineModelId, webgpu: Boolean(navigator.gpu) }), respond);
+      return respondAsync(async () => ({ ...pool.status(), webgpu: Boolean(navigator.gpu) }), respond);
     default:
       return false;
   }

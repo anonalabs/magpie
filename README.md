@@ -107,6 +107,17 @@ service worker ──── is it a PDF? ──▶ offscreen: fetch and parse wi
 
 ### The parts that are load-bearing
 
+**The engine's lifecycle is its own tested module.** Loading, sharing,
+discarding after a GPU fault, and queueing requests live in
+[`src/lib/engine-pool.js`](src/lib/engine-pool.js) with `create` injected, so
+they can be tested without a GPU. That code produced the same class of bug twice
+— a handle used after the engine behind it was gone — and neither time was
+catchable where it lived, because it only ran behind WebGPU. Three rules it
+enforces: the engine is a promise rather than a variable that will be set soon;
+teardown and rebuild are serialised, because unloading in parallel with a load
+tears down the replacement; and a queued request resolves the engine when it
+runs, never when it was queued.
+
 **The offscreen document, not the service worker, owns the job.** A service
 worker dies after 30 seconds idle and is capped at 5 minutes per event; a long
 article takes longer than both. An offscreen document has no such timeout. This
@@ -265,7 +276,7 @@ processing, report it as accepted, not stored.
 ```bash
 npm run verify      # build, remote-code gate, unit tests, end-to-end tests
 npm run watch       # rebuild dist/ on change
-npm test            # 93 unit tests
+npm test            # 109 unit tests
 npm run test:e2e    # 65 end-to-end, driving a real Chrome
 npm run spike       # the phase-0 architecture probes
 npm run package     # the Chrome Web Store zip
