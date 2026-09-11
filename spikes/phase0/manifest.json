@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "magpie phase0 spike",
+  "version": "0.0.1",
+  "description": "Verifies S1 offscreen survives SW death, S2 job outlives SW, S4 commands grants activeTab.",
+  "permissions": ["activeTab", "scripting", "offscreen", "storage"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "magpie spike" },
+  "commands": {
+    "remember-page": {
+      "suggested_key": { "default": "Alt+Shift+M", "mac": "Alt+Shift+M" },
+      "description": "S4: extract the active tab via a keyboard shortcut only"
+    }
+  }
+}

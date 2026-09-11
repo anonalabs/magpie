@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>magpie spike</title>
+<style>
+  body { font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; width: 380px; margin: 0; padding: 12px; }
+  h1 { font-size: 12px; margin: 0 0 8px; letter-spacing: .08em; text-transform: uppercase; opacity: .6; }
+  button { font: inherit; padding: 6px 8px; margin: 0 4px 6px 0; cursor: pointer; }
+  pre { background: #0001; padding: 8px; border-radius: 4px; white-space: pre-wrap; word-break: break-all; margin: 8px 0 0; }
+  .row { margin-bottom: 4px; }
+</style>
+<h1>magpie phase-0 spike</h1>
+<div class="row">
+  <button id="ensure">1. ensure offscreen</button>
+  <button id="ping">2. ping offscreen</button>
+</div>
+<div class="row">
+  <button id="job">3. start 90s job</button>
+  <button id="state">4. read job state</button>
+</div>
+<div class="row"><button id="sw">5. sw info + S4 result</button></div>
+<pre id="out">ready</pre>
+<script src="popup.js" type="module"></script>
