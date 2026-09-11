@@ -32,7 +32,7 @@ const manifest = {
   ],
   // The floating in-page button asks for this at the moment it is switched on,
   // so the install prompt stays "no site access" for everyone who never does.
-  optional_host_permissions: ['<all_urls>'],
+  optional_host_permissions: ['http://*/*', 'https://*/*'],
   background: { service_worker: 'background.js', type: 'module' },
   action: { default_popup: 'popup.html', default_title: 'Remember this page' },
   icons: { 16: 'icons/16.png', 48: 'icons/48.png', 128: 'icons/128.png' },

@@ -344,7 +344,7 @@ async function save() {
 // on every page, which reads at install time as "read and change all your data
 // on all websites" — not a thing to take by default from people who installed
 // this because it keeps their reading on their own machine.
-const ALL_SITES = { origins: ['<all_urls>'] };
+const ALL_SITES = { origins: ['http://*/*', 'https://*/*'] };
 
 async function renderInPageToggle() {
   const granted = await chrome.permissions.contains(ALL_SITES);

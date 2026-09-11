@@ -13,6 +13,9 @@ import { MODELS } from './lib/models.js';
 
 const RAW_STATE_KEY = (tabId) => `raw:${tabId}`;
 const IN_PAGE_SCRIPT_ID = 'magpie-in-page';
+// Web pages only. <all_urls> would also cover file:// and ftp://, which the
+// button never runs on, and would make the permission prompt larger for nothing.
+const IN_PAGE_ORIGINS = { origins: ['http://*/*', 'https://*/*'] };
 
 // ---------------------------------------------------------------- badge ----
 // The entire UI for the keyboard-shortcut path, which never opens the popup.
@@ -146,7 +149,7 @@ async function captureState(tabId) {
  * instead of leaving it declared and silently inert.
  */
 async function syncInPage() {
-  const granted = await chrome.permissions.contains({ origins: ['<all_urls>'] });
+  const granted = await chrome.permissions.contains(IN_PAGE_ORIGINS);
   const existing = await chrome.scripting
     .getRegisteredContentScripts({ ids: [IN_PAGE_SCRIPT_ID] })
     .catch(() => []);
@@ -160,7 +163,7 @@ async function syncInPage() {
   await chrome.scripting.registerContentScripts([{
     id: IN_PAGE_SCRIPT_ID,
     js: ['in-page.js'],
-    matches: ['<all_urls>'],
+    matches: ['http://*/*', 'https://*/*'],
     runAt: 'document_idle',
     // Top frame only: every ad slot and embedded player is also a frame.
     allFrames: false,

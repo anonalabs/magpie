@@ -45,8 +45,14 @@ const findings = [];
 for (const file of files) {
   const text = readFileSync(file, 'utf8');
   for (const url of text.match(/https?:\/\/[^\s"'`)\\]+/g) ?? []) {
-    let origin;
-    try { origin = new URL(url).origin; } catch { continue; }
+    let parsed;
+    try { parsed = new URL(url); } catch { continue; }
+
+    // Chrome match patterns ("http://*/*") parse as URLs but address nothing —
+    // they are permission and content-script declarations, and cannot fetch.
+    if (parsed.hostname.includes('*')) continue;
+
+    const origin = parsed.origin;
     if (INFORMATIONAL.includes(origin) && !CODE_EXT.test(url)) continue;
     if (ALLOWED.includes(origin) && !CODE_EXT.test(url)) continue;
     if (CODE_EXT.test(url)) findings.push({ file: file.replace(DIST, 'dist'), url, why: 'remotely-hosted code' });

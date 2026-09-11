@@ -7,7 +7,7 @@
 
 import { MSG, toBackground } from './lib/messages.js';
 
-const ALL_SITES = { origins: ['<all_urls>'] };
+const ALL_SITES = { origins: ['http://*/*', 'https://*/*'] };
 const $ = (id) => document.getElementById(id);
 
 function report(kind, text, done = false) {
@@ -25,6 +25,16 @@ async function refresh() {
 }
 
 $('allow').onclick = async () => {
+  // Chrome re-reads an unpacked extension's FILES from disk on every load, but
+  // caches the parsed MANIFEST until the extension is reloaded. So a fresh build
+  // can serve this very page while Chrome still runs the previous manifest — and
+  // the only symptom is "Only permissions specified in the manifest may be
+  // requested", which sounds like a bug in the request rather than a stale load.
+  if (!chrome.runtime.getManifest().optional_host_permissions?.length) {
+    return report('bad', 'This extension needs reloading: open chrome://extensions and press '
+      + 'reload on magpie, then come back. Chrome is still running an older manifest.');
+  }
+
   let granted = false;
   try {
     granted = await chrome.permissions.request(ALL_SITES);
