@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CHARS_PER_TOKEN, estimateTokens, inputBudget, chunkText, planSummarisation, reducePlan,
+  CHARS_PER_TOKEN, estimateTokens, inputBudget, chunkText, planSummarisation, reducePlan, splitInHalf,
 } from '../src/lib/chunk.js';
 
 const para = (n, word = 'word') => Array.from({ length: n }, () => word).join(' ');
+// Measured the way the budget is applied: in tokens, not characters.
 const fits = (chunks, budgetTokens) =>
-  chunks.every((c) => c.length <= budgetTokens * CHARS_PER_TOKEN);
+  chunks.every((c) => estimateTokens(c) <= budgetTokens);
 
 describe('inputBudget', () => {
   it('leaves room for the prompt and the answer', () => {
@@ -117,5 +118,84 @@ describe('reducePlan', () => {
     expect(plan.fits).toBe(false);
     expect(plan.chunks.length).toBeGreaterThan(1);
     expect(fits(plan.chunks, 200)).toBe(true);
+  });
+});
+
+
+describe('estimateTokens', () => {
+  it('never under-counts the text that used to break it', () => {
+    // A flat length/4 measured 43% low on code and 54% low on URLs, and
+    // under-counting overfills the context window — which comes back as an
+    // empty summary rather than an error.
+    const cases = [
+      ['urls', 'see https://app.slack.com/client/T01ABCD/C09XYZ/thread-1757 and ping @alice '.repeat(30), 2.6],
+      ['code', 'const x = {a:1,b:[2,3]};\n'.repeat(200), 2.8],
+      ['cjk', '日本語のテキストはトークン化が異なります。'.repeat(50), 1.5],
+    ];
+    for (const [name, text, charsPerRealToken] of cases) {
+      const likelyReal = Math.ceil(text.length / charsPerRealToken);
+      expect(estimateTokens(text), `${name} must not under-count`).toBeGreaterThanOrEqual(likelyReal);
+    }
+  });
+
+  it('stays close for ordinary prose, where it was already right', () => {
+    const prose = 'the quick brown fox jumps over the lazy dog and keeps running '.repeat(70);
+    const likelyReal = Math.ceil(prose.length / 4);
+    const estimate = estimateTokens(prose);
+    expect(estimate).toBeGreaterThanOrEqual(likelyReal);
+    expect(estimate).toBeLessThan(likelyReal * 1.4);   // pessimistic, not absurd
+  });
+
+  it('is zero for nothing', () => {
+    expect(estimateTokens('')).toBe(0);
+    expect(estimateTokens(undefined)).toBe(0);
+  });
+});
+
+describe('chunkText sizes by tokens, not characters', () => {
+  it('gives dense text smaller chunks than prose', () => {
+    const prose = 'the quick brown fox jumps over the lazy dog '.repeat(400);
+    const dense = 'const x = {a:1,b:[2,3]}; // https://example.com/a/b?c=1\n'.repeat(400);
+
+    const proseChunks = chunkText(prose, 500);
+    const denseChunks = chunkText(dense, 500);
+
+    expect(fits(proseChunks, 500)).toBe(true);
+    expect(fits(denseChunks, 500)).toBe(true);
+    // Same budget, denser text: the pieces have to be shorter in characters.
+    const avg = (chunks) => chunks.reduce((n, c) => n + c.length, 0) / chunks.length;
+    expect(avg(denseChunks)).toBeLessThan(avg(proseChunks));
+  });
+});
+
+describe('splitInHalf', () => {
+  it('cuts at a paragraph boundary near the middle', () => {
+    const [left, right] = splitInHalf('one two three\n\nfour five six');
+    expect(left).toBe('one two three');
+    expect(right).toBe('four five six');
+  });
+
+  it('falls to a sentence boundary when there are no paragraphs', () => {
+    const [left, right] = splitInHalf('First sentence here. Second sentence here.');
+    expect(left).toBe('First sentence here.');
+    expect(right).toBe('Second sentence here.');
+  });
+
+  it('cuts an unbroken run rather than giving up', () => {
+    const halves = splitInHalf('x'.repeat(100));
+    expect(halves).toHaveLength(2);
+    expect(halves.join('')).toBe('x'.repeat(100));
+  });
+
+  it('says it cannot be split when it cannot', () => {
+    // The caller needs to tell "smaller" from "cannot be made smaller".
+    expect(splitInHalf('x')).toEqual(['x']);
+    expect(splitInHalf('')).toEqual([]);
+  });
+
+  it('loses nothing', () => {
+    const text = 'alpha bravo\n\ncharlie delta\n\necho foxtrot';
+    expect(splitInHalf(text).join(' ').split(/\s+/).sort())
+      .toEqual(text.split(/\s+/).sort());
   });
 });

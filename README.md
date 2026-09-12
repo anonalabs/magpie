@@ -138,9 +138,20 @@ have landed. magpie retries anyway: losing a capture is worse than duplicating
 one, and duplicates are visible in history. This is a decision, not an oversight;
 the opposite call is defensible.
 
-**Everything is chunked.** Both models have a 4096-token context. After reserving
-150 tokens for the prompt, 350 for the answer and a little slack, an article gets
-**3,500 tokens — about 14,000 characters — per call**:
+**Everything is chunked, and measured in tokens rather than characters.** Both
+models have a 4096-token context. After reserving 150 tokens for the prompt, 350
+for the answer and a little slack, an article gets **3,500 tokens per call**.
+
+How many characters that is depends entirely on the text. A flat length÷4 — what
+this used to assume — measured **43% low on code and 54% low on text full of
+URLs**, and under-counting is the dangerous direction: it overfills the context
+window, and an overfull prompt comes back as an *empty summary* rather than an
+error. The estimator now counts word runs and punctuation separately and is
+deliberately pessimistic.
+
+Nothing depends on it being right. An empty answer is retried on half the input,
+twice, before it is treated as a failure — spending an extra call is cheaper than
+losing the capture.
 
 | | extracted | chunks | model calls |
 |---|---|---|---|
@@ -276,7 +287,7 @@ processing, report it as accepted, not stored.
 ```bash
 npm run verify      # build, remote-code gate, unit tests, end-to-end tests
 npm run watch       # rebuild dist/ on change
-npm test            # 109 unit tests
+npm test            # 118 unit tests
 npm run test:e2e    # 65 end-to-end, driving a real Chrome
 npm run spike       # the phase-0 architecture probes
 npm run package     # the Chrome Web Store zip

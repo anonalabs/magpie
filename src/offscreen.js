@@ -8,7 +8,7 @@
 
 import { CreateMLCEngine } from '@mlc-ai/web-llm';
 import { MSG, TO_OFFSCREEN, respondAsync, toBackground } from './lib/messages.js';
-import { planSummarisation, reducePlan } from './lib/chunk.js';
+import { planSummarisation, reducePlan, splitInHalf, estimateTokens } from './lib/chunk.js';
 import { appConfigFor } from './lib/models.js';
 import { isDeviceLost, isGpuFault } from './lib/gpu.js';
 import { createEnginePool } from './lib/engine-pool.js';
@@ -289,14 +289,42 @@ async function runDistill({ job: incoming, model, draft = false }) {
       }
     };
 
+    /**
+     * An empty answer almost always means the prompt overran the model's context
+     * window: the token count is an estimate, and a page dense with URLs or code
+     * costs far more than its length suggests. Halving the input and trying
+     * again is what stops that estimate being load-bearing — it is cheaper to
+     * spend an extra call than to lose the capture.
+     */
+    const summarise = async (text, build, stage, step, depth = 0) => {
+      const answer = await ask(build(text), stage, step);
+      if (answer) return answer;
+
+      const halves = splitInHalf(text);
+      if (depth >= 2 || halves.length < 2) {
+        const err = new Error(
+          `The model returned nothing, even for a passage of about ${estimateTokens(text)} tokens.`,
+        );
+        err.code = 'empty_summary';
+        throw err;
+      }
+
+      const parts = [];
+      for (const half of halves) {
+        parts.push(await summarise(half, build, `${stage} — retrying smaller`, step, depth + 1));
+      }
+      return parts.filter(Boolean).join(' ');
+    };
+
     let summary;
     if (plan.chunks.length === 1) {
-      summary = await ask(prompts.whole(job.title, plan.chunks[0]), 'Summarising', 1);
+      summary = await summarise(plan.chunks[0], (text) => prompts.whole(job.title, text), 'Summarising', 1);
     } else {
       const parts = [];
       for (const [i, chunk] of plan.chunks.entries()) {
-        parts.push(await ask(
-          prompts.section(job.title, chunk, i + 1, plan.chunks.length),
+        parts.push(await summarise(
+          chunk,
+          (text) => prompts.section(job.title, text, i + 1, plan.chunks.length),
           `Summarising part ${i + 1} of ${plan.chunks.length}`, i + 1,
         ));
       }
@@ -307,12 +335,16 @@ async function runDistill({ job: incoming, model, draft = false }) {
       let round = reducePlan(pending, plan.budgetTokens);
       while (!round.fits) {
         const folded = [];
-        for (const group of round.chunks) folded.push(await ask(prompts.reduce(job.title, group), 'Condensing'));
+        for (const group of round.chunks) {
+          folded.push(await summarise(group, (text) => prompts.reduce(job.title, text), 'Condensing'));
+        }
         pending = folded;
         round = reducePlan(pending, plan.budgetTokens);
       }
 
-      summary = await ask(prompts.reduce(job.title, round.joined), 'Writing the summary', plan.totalCalls);
+      summary = await summarise(
+        round.joined, (text) => prompts.reduce(job.title, text), 'Writing the summary', plan.totalCalls,
+      );
     }
 
     if (!summary) throw new Error('The model returned an empty summary.');
@@ -361,6 +393,14 @@ function classify(err, model) {
       // Reloading is usually enough. If it keeps happening on the bigger model,
       // the smaller one asks far less of the GPU.
       recover: model?.id?.includes('3B') ? 'smaller_model' : undefined,
+    };
+  }
+
+  if (err?.code === 'empty_summary' || /empty summary/i.test(message)) {
+    return {
+      code: 'empty_summary',
+      message: `${message} That usually means the page is not prose the model can summarise.`,
+      recover: 'raw',
     };
   }
 
