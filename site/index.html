@@ -192,8 +192,10 @@
   .chip-pins { stroke: var(--line-strong); stroke-width: 1.5; stroke-linecap: round; fill: none; }
   .chip-scan { fill: var(--red); opacity: 0; }
 
-  /* The work itself, inside the machine panel. */
-  .work { opacity: 0; }
+  /* The work itself, inside the machine panel. Hidden per shape, never on the
+     chunks group: an opacity:0 parent hides children whatever their own
+     opacity animates to, and the three chunks are animated one by one. */
+  .work.in, .work.out, .work.chunks rect { opacity: 0; }
   .work.in { fill: var(--line-strong); }
   .work.chunks rect { fill: var(--line-strong); }
   .work.out { fill: var(--red); }
@@ -258,8 +260,8 @@
   @keyframes condense {
     0%, 12%   { opacity: 0; transform: scaleX(1); }
     19%, 34%  { opacity: 1; transform: scaleX(1); }
-    36%, 51%  { opacity: 0; transform: scaleX(1); }    /* handed to the machine */
-    54%, 70%  { opacity: 1; transform: scaleX(.26); }  /* taken back, folded */
+    36%, 55%  { opacity: 0; transform: scaleX(1); }    /* handed to the machine */
+    58%, 70%  { opacity: 1; transform: scaleX(.26); }  /* taken back, folded */
     74%, 100% { opacity: 0; transform: scaleX(.26); }
   }
 
@@ -313,7 +315,7 @@
   @keyframes folded {
     0%, 49%   { opacity: 0; transform: scaleX(2.6); }
     52%, 56%  { opacity: 1; transform: scaleX(1); }
-    60%, 100% { opacity: 0; transform: scaleX(1); }
+    58%, 100% { opacity: 0; transform: scaleX(1); }
   }
   .chip { animation: working 9s ease-in-out infinite; }
   @keyframes working {
