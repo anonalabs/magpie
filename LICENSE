@@ -22,8 +22,30 @@ SOFTWARE.
 
 ---
 
-This product bundles Readability.js, from Mozilla, which is licensed under the
-Mozilla Public License 2.0. See https://github.com/mozilla/readability.
+## Bundled third-party work
 
-This product bundles pdf.js, from Mozilla, which is licensed under the Apache
-License 2.0. See https://github.com/mozilla/pdf.js.
+magpie ships the following inside the extension package. Each keeps its own
+licence; the MIT grant above covers magpie's own code only.
+
+**Readability.js** — Mozilla, Mozilla Public License 2.0.
+<https://github.com/mozilla/readability>
+
+**pdf.js** — Mozilla, Apache License 2.0.
+<https://github.com/mozilla/pdf.js>
+
+**WebLLM** — MLC AI, Apache License 2.0. <https://github.com/mlc-ai/web-llm>
+
+**Compiled model libraries** (`src/vendor/wasm/*.wasm`) — MLC AI, Apache License
+2.0, from <https://github.com/mlc-ai/binary-mlc-llm-libs>. Vendored rather than
+fetched at runtime because Chrome treats a remotely-fetched `.wasm` as
+remotely-hosted code, which the Web Store rejects.
+
+**Space Grotesk** — Florian Karsten, SIL Open Font License 1.1. Licence text at
+`src/fonts/OFL-Space-Grotesk.txt`.
+
+**JetBrains Mono** — JetBrains, SIL Open Font License 1.1. Licence text at
+`src/fonts/OFL-JetBrains-Mono.txt`.
+
+Model *weights* are not bundled. They are downloaded once from Hugging Face and
+cached by the browser, and each carries the licence of its own model — Qwen2.5,
+Llama 3.2 and Gemma 3 respectively.
