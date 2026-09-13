@@ -31,11 +31,14 @@
     "not_found_handling": "404-page"
   },
 
-  // Uncomment once the DNS record exists. Until then `wrangler deploy` publishes
-  // to the workers.dev subdomain, which is fine for a look and wrong as a home.
-  // "routes": [
-  //   { "pattern": "magpie.anonalabs.com", "custom_domain": true }
-  // ],
+  // custom_domain, not a plain route pattern. A custom domain makes Cloudflare
+  // create and own both the DNS record and the certificate for this hostname,
+  // so there is no second place holding a target that can go stale. A route
+  // pattern is the other thing entirely: it needs a DNS record to already
+  // exist, and only intercepts requests on its way to an origin.
+  "routes": [
+    { "pattern": "magpie.anonalabs.com", "custom_domain": true }
+  ],
 
   "observability": {
     "enabled": true

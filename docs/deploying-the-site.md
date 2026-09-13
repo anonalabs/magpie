@@ -15,8 +15,8 @@ npx wrangler login       # once, per machine
 npm run deploy:site      # npx wrangler deploy
 ```
 
-Live at **https://magpie-site.anoop-eaf.workers.dev** — good for a look, wrong as
-a home. See [Putting it on a real hostname](#putting-it-on-a-real-hostname).
+Live at **https://magpie.anonalabs.com**, and also on
+`magpie-site.anoop-eaf.workers.dev`.
 
 `workers_dev` is set to `true` explicitly rather than left out. It defaults to
 true when absent, which is how an app once ended up served from a public
@@ -41,25 +41,38 @@ appears to do nothing.
 
 `npx wrangler whoami` lists both if you need to confirm.
 
-## Putting it on a real hostname
+## The hostname
 
-1. In the Cloudflare dashboard, on the `anonalabs.com` zone, add a DNS record
-   for `magpie` — any placeholder target will do, because a Workers custom
-   domain replaces it.
-2. Uncomment the `routes` block in `wrangler.jsonc`:
+`magpie.anonalabs.com` is attached, in `wrangler.jsonc`:
 
-   ```jsonc
-   "routes": [
-     { "pattern": "magpie.anonalabs.com", "custom_domain": true }
-   ],
-   ```
+```jsonc
+"routes": [
+  { "pattern": "magpie.anonalabs.com", "custom_domain": true }
+],
+```
 
-3. `npm run deploy:site` again. Wrangler creates the custom domain and the
-   certificate.
+**No DNS record had to be created by hand.** That is what `custom_domain: true`
+means: Cloudflare creates and owns both the record and the certificate, and
+`wrangler deploy` is the only step. Adding a record first would have been extra
+work and a second place for a target to go stale.
 
-`custom_domain: true` is deliberate rather than a plain route pattern: it makes
-Cloudflare own the DNS record and the certificate for that hostname, so there is
-no second place holding a stale target.
+### custom_domain versus a route pattern
+
+They are different mechanisms and it is worth knowing which you want.
+
+| | `custom_domain: true` | a route pattern |
+|---|---|---|
+| Form | `"magpie.anonalabs.com"` | `"magpie.anonalabs.com/*"` |
+| DNS | Cloudflare creates and owns the record | must already exist, usually a dummy proxied `AAAA 100::` |
+| Certificate | issued and renewed for you | the zone's existing cover |
+| Origin | none — the Worker *is* the site | the Worker sits in front of one |
+| Right for | a site that is only this Worker | intercepting some paths of an existing site |
+
+A site wants the first. The dashboard's Worker uses the second, because it sits
+in front of an ALB and only claims some paths — see the Anona-Memory repo.
+
+To move it to another hostname, change the pattern and deploy; to detach it,
+remove the `routes` block, deploy, and delete the record Cloudflare made.
 
 ## What is served
 
