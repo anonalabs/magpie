@@ -22,6 +22,42 @@ export function getProvider(id) {
   return provider;
 }
 
+/**
+ * The part of a provider's config that decides WHERE a capture lands: every
+ * field except the credential. It is snapshotted onto the record at capture
+ * time and wins over the live settings when the record is finally sent, so a
+ * capture goes to the destination that was on screen when the reader pressed
+ * Remember. Changing the space afterwards must not redirect work already
+ * captured, and a retry hours later must not land somewhere else again.
+ *
+ * The key is deliberately NOT snapshotted: a rotated key has to reach a queued
+ * record, and there is no reason to keep a second copy of a credential.
+ */
+export function routingConfig(providerId, config = {}) {
+  return Object.fromEntries(
+    getProvider(providerId).fields
+      .filter((f) => f.type !== 'password')
+      .map((f) => [f.key, config[f.key] ?? ''])
+      .filter(([, value]) => value !== ''),
+  );
+}
+
+/**
+ * The config one send actually uses: the credential (and anything else) from
+ * today's settings, overlaid with the destination this capture was made for.
+ * A record written before snapshots existed has none, and follows the setting.
+ */
+export function sendConfig(providerId, settingsConfig = {}, record = {}) {
+  return { ...settingsConfig, ...routingConfig(providerId, record.destinationConfig ?? {}) };
+}
+
+/** "Anona Memory \u00b7 my-space": what the reader is told, from what will be sent. */
+export function destinationLabel(providerId, routing = {}) {
+  const provider = getProvider(providerId);
+  const where = provider.fields.find((f) => f.type !== 'password' && routing[f.key]);
+  return where ? `${provider.label} \u00b7 ${routing[where.key]}` : provider.label;
+}
+
 /** Which required fields are blank. Empty array means ready to send. */
 export function missingFields(provider, config = {}) {
   return provider.fields

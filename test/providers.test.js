@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { PROVIDERS, getProvider, missingFields, push, loadFieldOptions } from '../src/lib/providers/registry.js';
+import {
+  PROVIDERS, getProvider, missingFields, push, loadFieldOptions,
+  routingConfig, destinationLabel, sendConfig,
+} from '../src/lib/providers/registry.js';
 
 const capture = {
   title: 'A Page',
@@ -300,5 +303,39 @@ describe('content that is too long to send whole', () => {
     const res = await push('supermemory', { ...capture, content: 'x'.repeat(500_000) }, { apiKey: 'k' });
     expect(res.ok).toBe(true);
     expect(spy).toHaveBeenCalled();
+  });
+});
+
+describe('where a capture lands', () => {
+  it('snapshots the destination without the credential', () => {
+    expect(routingConfig('anona', { apiKey: 'anona_live_secret', spaceId: 'Magpie-v2' }))
+      .toEqual({ spaceId: 'Magpie-v2' });
+    expect(routingConfig('mem0', { apiKey: 'm0-secret', userId: 'me@example.com' }))
+      .toEqual({ userId: 'me@example.com' });
+  });
+
+  it('leaves out a field that was never filled in', () => {
+    expect(routingConfig('supermemory', { apiKey: 'sm_secret', containerTag: '' })).toEqual({});
+  });
+
+  it('names the destination from what will be sent', () => {
+    expect(destinationLabel('anona', { spaceId: 'Magpie-v2' })).toBe('Anona Memory · Magpie-v2');
+    expect(destinationLabel('supermemory', {})).toBe('Supermemory');
+  });
+
+  it('sends to the space the capture was made for, not the one set since', () => {
+    const record = { providerId: 'anona', destinationConfig: { spaceId: 'Magpie-v2' } };
+    const settingsNow = { apiKey: 'anona_live_rotated', spaceId: 'probe-c61a209c' };
+
+    const config = sendConfig('anona', settingsNow, record);
+
+    expect(config.spaceId).toBe('Magpie-v2');
+    // and the key is still today's, so rotating one reaches a queued record
+    expect(config.apiKey).toBe('anona_live_rotated');
+  });
+
+  it('follows the current setting for a record captured before snapshots', () => {
+    const config = sendConfig('anona', { apiKey: 'k', spaceId: 'default' }, { providerId: 'anona' });
+    expect(config.spaceId).toBe('default');
   });
 });

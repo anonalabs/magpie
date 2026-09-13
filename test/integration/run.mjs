@@ -218,6 +218,40 @@ async function main() {
       sent.body.metadata?.title);
   }
 
+  // ---- changing the space changes where the next capture goes ----------
+  // Reported from real use: the space was changed in settings and captures kept
+  // landing in the old one. Both halves are checked, because a receipt that
+  // names the new space while the request carries the old one is the same bug
+  // wearing a disguise.
+  await evalIn(cdp, `
+    await chrome.storage.local.set({ settings: {
+      mode: 'raw', modelSize: 'small', providerId: 'anona',
+      providers: { anona: { apiKey: 'anona_live_testkey', spaceId: 'magpie-v2' } },
+    }});
+    return true;`);
+
+  const moved = await evalIn(cdp, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'START_CAPTURE', tabId: ${tabId} });`);
+
+  check('a capture after the change is remembered', moved?.state === 'remembered',
+    `state "${moved?.state}" ${moved?.result?.message ?? ''}`);
+  check('the receipt names the new space',
+    moved?.result?.providerLabel === 'Anona Memory \u00b7 magpie-v2',
+    String(moved?.result?.providerLabel));
+
+  const afterChange = received.filter((r) => r.url === '/v1/record').at(-1);
+  check('and the write really goes to the new space',
+    afterChange?.body?.space_id === 'magpie-v2', afterChange?.body?.space_id);
+
+  // Put the space back, so the cases below still describe a saved space that
+  // the stubbed listing does not contain.
+  await evalIn(cdp, `
+    await chrome.storage.local.set({ settings: {
+      mode: 'raw', modelSize: 'small', providerId: 'anona',
+      providers: { anona: { apiKey: 'anona_live_testkey', spaceId: 'magpie-test' } },
+    }});
+    return true;`);
+
   // ---- a one-off mode must not become the setting -------------------------
   // "Send the page text instead" is offered from an error dialog. Sending raw is
   // ~270x the content at the provider and is billed on it, so a click there must
@@ -461,7 +495,7 @@ async function main() {
   // created by the first write, and losing it on open would be silent.
   check('a saved space that is not in the list survives', picker.selected === 'magpie-test', picker.selected);
   check('and is marked as not existing yet',
-    picker.labels.some((l) => l === 'magpie-test — will be created'),
+    picker.labels.some((l) => l === 'magpie-test (will be created)'),
     picker.labels.find((l) => l.includes('magpie-test')) ?? 'none');
   check('typing a new name is still offered',
     picker.labels.some((l) => l.startsWith('Type a different name')), 'ok');

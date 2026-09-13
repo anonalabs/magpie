@@ -365,6 +365,7 @@ async function runDistill({ job: incoming, model, draft = false }) {
       capturedAt: job.capturedAt,
       mode: 'distill',
       providerId: job.providerId,
+      destinationConfig: job.destinationConfig,
       destination: job.destination,
       content: summary,
       chars: summary.length,

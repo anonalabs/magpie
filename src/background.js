@@ -8,7 +8,7 @@
 
 import { MSG, TO_BACKGROUND, respondAsync, toOffscreen } from './lib/messages.js';
 import { loadSettings, providerConfig } from './lib/settings.js';
-import { push, getProvider } from './lib/providers/registry.js';
+import { push, routingConfig, destinationLabel, sendConfig } from './lib/providers/registry.js';
 import { MODELS } from './lib/models.js';
 import * as captures from './lib/captures.js';
 import { settle } from './lib/queue.js';
@@ -94,6 +94,7 @@ export async function startCapture(tabId, mode) {
 }
 
 async function dispatchPdf(tabId, tab, settings, effectiveMode) {
+    const routing = routingConfig(settings.providerId, providerConfig(settings));
     await ensureOffscreen();
     return toOffscreen(MSG.RUN_PDF, {
       job: {
@@ -104,7 +105,8 @@ async function dispatchPdf(tabId, tab, settings, effectiveMode) {
         mode: effectiveMode,
         sourceKind: 'pdf',
         providerId: settings.providerId,
-        destination: describeDestination(settings),
+        destinationConfig: routing,
+        destination: destinationLabel(settings.providerId, routing),
       },
       model: MODELS[settings.modelSize] ?? MODELS.small,
     });
@@ -127,6 +129,12 @@ async function startArticleCapture(tabId, settings, effectiveMode) {
 
   if (!article?.ok) return fail(tabId, article ?? { code: 'extract_failed', message: 'Could not read this page.' });
 
+  // Where this capture goes is decided here, once, and travels with it. The
+  // reader pressed Remember while the popup named a destination; changing the
+  // setting afterwards must not redirect work already captured, and a retry
+  // hours later must not land somewhere else again.
+  const routing = routingConfig(settings.providerId, providerConfig(settings));
+
   const base = {
     tabId,
     title: article.title,
@@ -134,7 +142,8 @@ async function startArticleCapture(tabId, settings, effectiveMode) {
     capturedAt: new Date().toISOString(),
     mode: effectiveMode,
     providerId: settings.providerId,
-    destination: describeDestination(settings),
+    destinationConfig: routing,
+    destination: destinationLabel(settings.providerId, routing),
   };
 
   if (effectiveMode === 'raw') {
@@ -154,12 +163,6 @@ async function startArticleCapture(tabId, settings, effectiveMode) {
   } catch (err) {
     return fail(tabId, { code: 'engine_unreachable', message: String(err?.message ?? err) });
   }
-}
-
-function describeDestination(settings) {
-  const provider = getProvider(settings.providerId);
-  const space = settings.providers?.[settings.providerId]?.spaceId;
-  return space ? `${provider.label} · ${space}` : provider.label;
 }
 
 /**
@@ -182,7 +185,13 @@ async function commit(record) {
 
 async function send(record) {
   const settings = await loadSettings();
-  const config = settings.providers?.[record.providerId] ?? {};
+  // The credential comes from settings, so rotating a key reaches records that
+  // are already queued. Everything that decides where the capture lands comes
+  // from the record, which is what makes the receipt below true: it names the
+  // config this send actually used, not whatever the settings say now.
+  // Records written before this existed carry no snapshot and keep the old
+  // behaviour of following the current setting.
+  const config = sendConfig(record.providerId, settings.providers?.[record.providerId] ?? {}, record);
   const result = await push(record.providerId, {
     title: record.title,
     url: record.url,
@@ -195,7 +204,10 @@ async function send(record) {
     pagesTotal: record.pagesTotal,
   }, config);
 
-  const settled = settle(record, result);
+  const settled = settle(
+    { ...record, destination: destinationLabel(record.providerId, routingConfig(record.providerId, config)) },
+    result,
+  );
   await captures.replace(settled);
 
   if (record.tabId != null) {
@@ -293,13 +305,16 @@ async function startCompose(tabId) {
   }
   if (!article?.ok) return { ok: false, ...(article ?? { code: 'extract_failed', message: 'Could not read this page.' }) };
 
+  const routing = routingConfig(settings.providerId, providerConfig(settings));
+
   const base = {
     ok: true,
     tabId,
     title: article.title,
     url: article.url,
     mode: settings.mode,
-    destination: describeDestination(settings),
+    destinationConfig: routing,
+    destination: destinationLabel(settings.providerId, routing),
   };
 
   // Raw mode has nothing to wait for: the body is the article text.
@@ -331,7 +346,12 @@ async function saveCompose(draft) {
     sourceKind: draft.sourceKind ?? 'page',
     note: draft.note,
     providerId: settings.providerId,
-    destination: describeDestination(settings),
+    // The draft was started against a destination and the reader has been
+    // looking at it while typing. Keep it; only a draft from before this
+    // existed falls back to the current setting.
+    destinationConfig: draft.destinationConfig ?? routingConfig(settings.providerId, providerConfig(settings)),
+    destination: draft.destination
+      ?? destinationLabel(settings.providerId, routingConfig(settings.providerId, providerConfig(settings))),
     content,
     chars: content.length,
     kind: draft.mode === 'raw' ? 'article text' : 'summary',
@@ -404,6 +424,7 @@ async function captureSelection(tab, info) {
   }
 
   const settings = await loadSettings();
+  const selectionRouting = routingConfig(settings.providerId, providerConfig(settings));
   return jobFromRecord(await commit({
     tabId: tab.id,
     title: tab.title || tab.url,
@@ -412,7 +433,8 @@ async function captureSelection(tab, info) {
     mode: 'selection',
     sourceKind: 'selection',
     providerId: settings.providerId,
-    destination: describeDestination(settings),
+    destinationConfig: selectionRouting,
+    destination: destinationLabel(settings.providerId, selectionRouting),
     content: text.trim(),
     chars: text.trim().length,
     kind: 'selection',
