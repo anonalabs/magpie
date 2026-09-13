@@ -125,9 +125,9 @@ function widget() {
     <svg viewBox="0 0 32 32" aria-hidden="true">
       <defs><clipPath id="c"><rect width="32" height="32" rx="8"/></clipPath></defs>
       <g clip-path="url(#c)">
-        <rect width="32" height="32" fill="#17160f"/>
-        <circle cx="6.4" cy="30.4" r="16" fill="#f4f1ea"/>
-        <circle cx="21.8" cy="10.2" r="4.6" fill="#57b184"/>
+        <rect width="32" height="32" fill="#12171a"/>
+        <circle cx="6.4" cy="30.4" r="16" fill="#fbfbf9"/>
+        <circle cx="21.8" cy="10.2" r="4.6" fill="#b02324"/>
       </g>
     </svg>
     <span id="label"></span>`;
@@ -145,12 +145,12 @@ function style() {
   const el = document.createElement('style');
   el.textContent = `
     :host { all: initial; }
-    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+    * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
 
     #button {
       display: flex; align-items: center; gap: 8px;
       height: 38px; padding: 0 9px;
-      background: #fbfaf8; color: #17160f;
+      background: #fbfbf9; color: #12171a;
       border: 1px solid rgba(0,0,0,.1); border-radius: 999px;
       box-shadow: 0 2px 6px rgba(0,0,0,.10), 0 8px 24px rgba(0,0,0,.10);
       cursor: pointer; opacity: .55;
@@ -160,7 +160,7 @@ function style() {
     }
     #button:hover, #button[data-state="busy"], #button[data-state="good"], #button[data-state="bad"] { opacity: 1; }
     #button:hover { box-shadow: 0 3px 8px rgba(0,0,0,.13), 0 12px 30px rgba(0,0,0,.13); }
-    #button:focus-visible { outline: 2px solid #1c6b46; outline-offset: 2px; }
+    #button:focus-visible { outline: 2px solid #b02324; outline-offset: 2px; }
 
     #button svg { width: 20px; height: 20px; flex: none; border-radius: 6px; }
 
@@ -170,8 +170,8 @@ function style() {
     #label { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     #button[data-state="busy"] svg { animation: pulse 1.3s cubic-bezier(.16,1,.3,1) infinite; }
-    #button[data-state="good"] { color: #1c6b46; }
-    #button[data-state="bad"] { color: #9c3418; }
+    #button[data-state="good"] { color: #146d47; }
+    #button[data-state="bad"] { color: #a82d20; }
     @keyframes pulse { 50% { opacity: .45; } }
 
     #dismiss {
@@ -179,16 +179,16 @@ function style() {
       width: 17px; height: 17px; padding: 0;
       display: none; place-items: center;
       font-size: 12px; line-height: 1;
-      color: #fbfaf8; background: #17160f;
+      color: #fbfbf9; background: #12171a;
       border: 0; border-radius: 999px; cursor: pointer;
     }
     :host(:hover) #dismiss { display: grid; }
 
     @media (prefers-color-scheme: dark) {
-      #button { background: #1c1b14; color: #f4f2ec; border-color: rgba(255,255,255,.12); }
-      #button[data-state="good"] { color: #57b184; }
-      #button[data-state="bad"] { color: #e08a72; }
-      #dismiss { color: #17160f; background: #f4f2ec; }
+      #button { background: #1a2124; color: #e4e7e5; border-color: rgba(255,255,255,.12); }
+      #button[data-state="good"] { color: #4fbf8b; }
+      #button[data-state="bad"] { color: #ff6b5a; }
+      #dismiss { color: #12171a; background: #e4e7e5; }
     }
 
     @media (prefers-reduced-motion: reduce) {

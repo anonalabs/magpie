@@ -104,6 +104,9 @@ async function build() {
   }
   cpSync(wasmDir, join(DIST, 'wasm'), { recursive: true });
   cpSync(join(ROOT, 'icons'), join(DIST, 'icons'), { recursive: true });
+  // Self-hosted, not fetched: an extension that pulls a font from a CDN is
+  // loading a remote resource, which is the thing this one does not do.
+  cpSync(join(SRC, 'fonts'), join(DIST, 'fonts'), { recursive: true });
 
   writeFileSync(join(DIST, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 

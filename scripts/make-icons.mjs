@@ -4,17 +4,19 @@
 // Drawn in code rather than checked in as opaque binaries: the mark is four
 // numbers, and at 16px anything more detailed turns to mud anyway.
 //
-// Magpie colouring — black ground, a white wedge, and one green dot for the
-// shiny thing it took.
+// Magpie colouring — a dark ground, a white swell, and one red dot for the shiny
+// thing it took.
 
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const INK = [0x16, 0x15, 0x0f];
-const WHITE = [0xf6, 0xf4, 0xee];
-const ACCENT = [0x4f, 0xae, 0x7d];
+// Anona's own: the ink and plate of the dashboard, and the brand red that its
+// globals.css calls "the brand red itself".
+const INK = [0x12, 0x17, 0x1a];
+const WHITE = [0xfb, 0xfb, 0xf9];
+const ACCENT = [0xb0, 0x23, 0x24];
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n;

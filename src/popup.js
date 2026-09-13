@@ -138,8 +138,16 @@ const RECOVERIES = {
   webgpu_unavailable: { label: 'Send this page as text', run: () => start('raw') },
   raw: { label: 'Send this page as text', run: () => start('raw') },
   distill: { label: 'Summarise it on this device', run: () => start('distill') },
-  // The model size is not a per-capture thing; it is which model gets loaded.
-  smaller_model: { label: 'Use the smaller model', run: async () => { await saveSettings({ modelSize: 'small' }); start(); } },
+  // The model size is not a per-capture thing; it is which model gets loaded —
+  // and the engine names which one is actually smaller than the one that failed.
+  smaller_model: {
+    label: 'Use a smaller model',
+    run: async () => {
+      const next = lastError?.result?.smallerModel ?? 'tiny';
+      await saveSettings({ modelSize: next });
+      start();
+    },
+  },
   not_configured: { label: 'Open settings', run: () => openSettings(true) },
 };
 

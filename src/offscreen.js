@@ -9,7 +9,10 @@
 import { CreateMLCEngine } from '@mlc-ai/web-llm';
 import { MSG, TO_OFFSCREEN, respondAsync, toBackground } from './lib/messages.js';
 import { planSummarisation, reducePlan, splitInHalf, estimateTokens } from './lib/chunk.js';
-import { appConfigFor } from './lib/models.js';
+import { appConfigFor, MODELS, smallerThan } from './lib/models.js';
+
+/** Which entry in MODELS this is, so a recovery can step down from it. */
+const sizeOf = (model) => Object.keys(MODELS).find((size) => MODELS[size].id === model?.id) ?? null;
 import { isDeviceLost, isGpuFault } from './lib/gpu.js';
 import { createEnginePool } from './lib/engine-pool.js';
 // The legacy build, deliberately. The modern one calls
@@ -405,11 +408,19 @@ function classify(err, model) {
   }
 
   if (isGpuFault(err)) {
+    // A retry does not reduce memory pressure, and these faults nearly always
+    // are memory pressure — so the offer is a model that needs less of it, and
+    // only when there is no smaller one left does it become "send page text".
+    const smaller = model ? smallerThan(sizeOf(model)) : null;
     return {
       code: 'gpu_fault',
-      message: 'The GPU failed part-way through, twice in a row. This usually means it is under '
-        + 'pressure — closing other heavy tabs, or using the smaller model, gives it more room.',
-      recover: model?.id?.includes('3B') ? 'smaller_model' : 'raw',
+      message: smaller
+        ? `The GPU failed part-way through twice. That is almost always memory pressure: `
+          + `${MODELS[smaller].label} needs ${Math.round(model.vramMB - MODELS[smaller].vramMB)} MB less.`
+        : 'The GPU failed part-way through twice, on the smallest model there is. This machine '
+          + 'may not have room to run one at all.',
+      recover: smaller ? 'smaller_model' : 'raw',
+      smallerModel: smaller,
     };
   }
 
