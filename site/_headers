@@ -1,0 +1,17 @@
+# Applies to static assets, which on this site is everything — there is no
+# Worker script, so nothing here is generated at request time.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
+  # Narrow because the page is honest about what it loads: its own styles and
+  # one script, both inline, and Google Fonts. No analytics, no third-party
+  # script, nothing to phone home with. 'unsafe-inline' is named rather than
+  # worked around — the alternative is a nonce, which needs a Worker to mint it,
+  # and adding a Worker to avoid one keyword would be the worse trade.
+  Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

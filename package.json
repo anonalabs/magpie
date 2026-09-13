@@ -17,7 +17,8 @@
     "verify": "npm run build && npm run check:remote && npm test && npm run test:e2e",
     "icons": "node scripts/make-icons.mjs",
     "package": "npm run build && node scripts/package.mjs",
-    "shot": "node scripts/screenshot.mjs"
+    "shot": "node scripts/screenshot.mjs",
+    "deploy:site": "npx wrangler deploy"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.79",

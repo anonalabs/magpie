@@ -237,7 +237,8 @@ planted CDN `.wasm` before its passing result is trusted.
 
 Design notes for each piece are kept in
 [`docs/superpowers/specs/`](docs/superpowers/specs/), and
-[`docs/publishing.md`](docs/publishing.md) covers the Web Store listing.
+[`docs/publishing.md`](docs/publishing.md) covers the Web Store listing, and
+[`docs/deploying-the-site.md`](docs/deploying-the-site.md) the install page.
 
 ## Troubleshooting
 

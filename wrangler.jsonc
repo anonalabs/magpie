@@ -1,0 +1,30 @@
+{
+  // magpie's install page. Workers static assets, matching anonalabs.com —
+  // Cloudflare's own Pages docs now say "Workers supports most Pages use cases
+  // and offers a broader feature set… Start new projects with Workers", and
+  // nothing here needs Pages.
+  "name": "magpie-site",
+  "compatibility_date": "2026-09-13",
+
+  // No "main". The page is a single static file with no server code, so every
+  // request is served straight from the asset store. That also keeps _headers
+  // authoritative: its rules apply to static assets, never to bytes a Worker
+  // generated, and here there are none.
+  "assets": {
+    "directory": "./site",
+    "html_handling": "drop-trailing-slash",
+    // A miss is a genuine miss. Not "single-page-application", which would
+    // return the front door with a 200 for every wrong URL.
+    "not_found_handling": "404-page"
+  },
+
+  // Uncomment once the DNS record exists. Until then `wrangler deploy` publishes
+  // to the workers.dev subdomain, which is fine for a look and wrong as a home.
+  // "routes": [
+  //   { "pattern": "magpie.anonalabs.com", "custom_domain": true }
+  // ],
+
+  "observability": {
+    "enabled": true
+  }
+}
