@@ -6,6 +6,19 @@
   "name": "magpie-site",
   "compatibility_date": "2026-09-13",
 
+  // Pinned, because the token that deploys this can see two accounts and
+  // wrangler cannot choose between them: interactively it asks, and in CI it
+  // fails. This is the one the rest of Anona is in — anona-dashboard and the
+  // anonalabs.com zone both live here — so the site belongs beside them rather
+  // than in whichever account a prompt happened to land on.
+  "account_id": "eafb46d20d6f14e15325f10d3e372efa",
+
+  // Stated rather than left to the default. It defaults to true when absent,
+  // which is how an app once ended up served from a public workers.dev URL
+  // nobody had chosen to publish. Here it is wanted: a live address before the
+  // DNS record exists, for a page that is public anyway.
+  "workers_dev": true,
+
   // No "main". The page is a single static file with no server code, so every
   // request is served straight from the asset store. That also keeps _headers
   // authoritative: its rules apply to static assets, never to bytes a Worker

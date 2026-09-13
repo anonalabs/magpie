@@ -15,21 +15,31 @@ npx wrangler login       # once, per machine
 npm run deploy:site      # npx wrangler deploy
 ```
 
-That publishes to `magpie-site.<your-subdomain>.workers.dev`. Good for a look,
-wrong as a home — see the next section.
+Live at **https://magpie-site.anoop-eaf.workers.dev** — good for a look, wrong as
+a home. See [Putting it on a real hostname](#putting-it-on-a-real-hostname).
 
-> [!IMPORTANT]
-> The Anona Cloudflare account is **Anoop's**, not the account a fresh
-> `wrangler login` is likely to land in. Check which one you are in before
-> deploying, or you will publish a second copy of the site under your own
-> account and wonder why the DNS record does nothing:
->
-> ```bash
-> npx wrangler whoami
-> ```
->
-> To target it explicitly, set `CLOUDFLARE_ACCOUNT_ID`, or add `account_id` to
-> `wrangler.jsonc`.
+`workers_dev` is set to `true` explicitly rather than left out. It defaults to
+true when absent, which is how an app once ended up served from a public
+workers.dev URL nobody had chosen to publish; here it is wanted, so it is stated.
+
+A deploy takes a few seconds to reach every edge. A 404 on the root immediately
+after uploading is propagation, not a broken deploy — check again before
+debugging it.
+
+The account is **pinned in `wrangler.jsonc`** and needs no thought:
+
+```jsonc
+"account_id": "eafb46d20d6f14e15325f10d3e372efa"   // Anoop@anonalabs.com's Account
+```
+
+It has to be. The token that deploys this can see two accounts — Anoop's and
+Srujan's — and wrangler cannot choose between them: interactively it asks, and in
+CI it fails outright. Anoop's is the one the rest of Anona is in; `anona-dashboard`
+is deployed there, and so is the `anonalabs.com` zone. Unpinned, a deploy lands
+wherever the prompt happened to point, and the symptom is a DNS record that
+appears to do nothing.
+
+`npx wrangler whoami` lists both if you need to confirm.
 
 ## Putting it on a real hostname
 
