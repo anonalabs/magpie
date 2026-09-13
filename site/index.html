@@ -94,7 +94,7 @@
      the whole site, so on anything wider than a laptop it read as a card
      floating in the middle. Running text is still held to a measure where it
      matters. The lede and section intros set their own. */
-  .wrap { max-width: 78rem; margin: 0 auto; padding-inline: clamp(24px, 4vw, 56px); }
+  .wrap { max-width: min(120rem, 100%); margin: 0 auto; padding-inline: clamp(24px, 5vw, 96px); }
 
   /* Rules run the full width of the window rather than stopping at the content.
      That is what makes a centred column read as a page instead of a panel. */
@@ -142,7 +142,7 @@
 
   /* ── hero ───────────────────────────────────────────────────────────────── */
   .hero {
-    display: grid; grid-template-columns: minmax(0, 1fr) clamp(20rem, 34vw, 30rem);
+    display: grid; grid-template-columns: minmax(0, 1fr) clamp(20rem, 34vw, 36rem);
     gap: clamp(36px, 5vw, 72px); align-items: center;
     padding-block: clamp(48px, 7vw, 96px);
   }
@@ -285,9 +285,9 @@
   @keyframes scan {
     0%, 35%   { opacity: 0; transform: translateY(0); }
     38%       { opacity: 1; transform: translateY(0); }
-    44%       { opacity: 1; transform: translateY(14px); }
+    44%       { opacity: 1; transform: translateY(30px); }
     47%       { opacity: 1; transform: translateY(0); }
-    50%, 100% { opacity: 0; transform: translateY(14px); }
+    50%, 100% { opacity: 0; transform: translateY(30px); }
   }
 
   /* 1. it arrives, full length */
@@ -520,21 +520,20 @@
           <rect class="panel" x="122" y="16" width="86" height="86" rx="7"/>
 
           <g class="chip">
-            <rect class="chip-body" x="156" y="24" width="18" height="18" rx="4"/>
-            <path class="chip-pins" d="M161 24v-4M169 24v-4M161 42v4M169 42v4M156 29h-4M156 37h-4M174 29h4M174 37h4"/>
-            <rect class="chip-scan" x="158" y="26" width="14" height="2" rx="1"/>
+            <rect class="chip-body" x="143" y="37" width="44" height="44" rx="6"/>
+            <path class="chip-pins" d="M155 37v-4M165 37v-4M175 37v-4M155 81v4M165 81v4M175 81v4M143 49h-4M143 59h-4M143 69h-4M187 49h4M187 59h4M187 69h4"/>
+            <rect class="chip-scan" x="149" y="44" width="32" height="2" rx="1"/>
           </g>
 
-          <!-- what arrives -->
-          <rect class="work in" x="134" y="58" width="62" height="4" rx="2"/>
-          <!-- broken into pieces, each one summarised -->
+          <!-- the work happens inside the chip, which is the whole claim of
+               this panel: what arrives, then the pieces, then the one line -->
+          <rect class="work in" x="149" y="57" width="32" height="4" rx="2"/>
           <g class="work chunks">
-            <rect x="134" y="54" width="62" height="4" rx="2"/>
-            <rect x="134" y="62" width="62" height="4" rx="2"/>
-            <rect x="134" y="70" width="62" height="4" rx="2"/>
+            <rect x="149" y="47" width="32" height="4" rx="2"/>
+            <rect x="149" y="57" width="32" height="4" rx="2"/>
+            <rect x="149" y="67" width="32" height="4" rx="2"/>
           </g>
-          <!-- folded into one -->
-          <rect class="work out" x="134" y="62" width="18" height="4" rx="2"/>
+          <rect class="work out" x="149" y="57" width="12" height="4" rx="2"/>
 
           <text class="label" x="165" y="118">on your machine</text>
         </g>
