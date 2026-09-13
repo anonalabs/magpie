@@ -93,6 +93,29 @@ No telemetry, no analytics, and no magpie server. API keys live in
 `chrome.storage.local`, deliberately not `chrome.storage.sync`, which would
 replicate them to your Google account.
 
+### What magpie keeps on your machine
+
+Three things, and only one of them grows:
+
+| | Where | Size |
+|---|---|---|
+| Settings and your API key | `chrome.storage.local` | under a kilobyte |
+| Capture history | `chrome.storage.local` | ~600 bytes per capture, 200 kept, so ~115 KB at the cap |
+| Model weights | the browser's cache, written by WebLLM | 711 MB to 2.3 GB, once per model |
+
+**A landed capture keeps its metadata and loses its text.** Title, URL, time,
+destination, how many characters were sent: that is the whole record, and it is
+what the history list is built from. The page text and the summary are dropped
+the moment the write succeeds, so history cannot become a second copy of
+everything you have read. Only work that has *not* landed yet holds its content,
+because it still has to be sent, and that is also why unfinished captures are
+never pruned.
+
+The 200 most recent landed captures are kept and older ones fall off. The only
+figure worth planning around is the model: the weights are the download, and
+they are cached once and reused. Clearing them is *Clear browsing data → Cached
+images and files*; the next capture downloads again.
+
 ## Usage
 
 | | |
