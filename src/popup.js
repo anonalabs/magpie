@@ -172,6 +172,7 @@ function showView(next) {
   $('destination').classList.toggle('unset', !away && !isConfigured());
   $('destination').title = away ? 'Back' : 'Settings';
   $('destination-text').textContent = away ? 'Back' : destinationLabel();
+  renderDestinationMark(away);
   $('open-history').hidden = away;
 
   // Coming back from a long view at its old scroll position looks like nothing
@@ -281,6 +282,15 @@ const isConfigured = () =>
 
 // The header always says where a capture would go. It is the one fact worth
 // knowing before pressing, and it doubles as the way into settings.
+/** The mark sits in the chip, so where a capture goes is recognisable at a glance. */
+function renderDestinationMark(hidden) {
+  const slot = $('destination-mark');
+  if (!slot) return;
+  slot.replaceChildren();
+  if (hidden || !settings || !isConfigured()) return;
+  slot.append(providerMark(getProvider(settings.providerId), 13));
+}
+
 function destinationLabel() {
   if (!settings) return 'Not set up';
   const provider = getProvider(settings.providerId);
@@ -299,6 +309,28 @@ const typingByHand = new Set();
 const OTHER = '__magpie_type_a_name__';
 
 const cacheKey = (providerId, fieldKey) => `${providerId}:${fieldKey}`;
+
+/**
+ * A provider's mark. Anona ships its own; the others carry a monogram rather
+ * than a drawing pretending to be their logo.
+ */
+function providerMark(provider, size = 15) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'mark');
+  svg.setAttribute('width', size);
+  svg.setAttribute('height', size);
+  svg.setAttribute('aria-hidden', 'true');
+
+  if (provider.mark?.svg) {
+    svg.setAttribute('viewBox', provider.mark.viewBox);
+    svg.innerHTML = provider.mark.svg;
+  } else {
+    svg.setAttribute('viewBox', '0 0 16 16');
+    svg.innerHTML = '<rect width="16" height="16" rx="4" class="mark-tile"/>'
+      + `<text x="8" y="11.5" class="mark-letter">${provider.mark?.monogram ?? '?'}</text>`;
+  }
+  return svg;
+}
 
 function renderProviderFields() {
   const provider = getProvider($('provider').value);

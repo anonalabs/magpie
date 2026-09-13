@@ -1,0 +1,50 @@
+name: Bug report
+description: Something does not work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: a permission or shortcut that does nothing is usually a
+        stale manifest. Reload the extension at `chrome://extensions` rather than
+        only rebuilding, and see whether it persists.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the exact error text. The popup's error screen has a **Copy details** button that puts everything below on your clipboard.
+      placeholder: |
+        Could not remember this
+        The GPU failed part-way through twice. (gpu_fault)
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open https://…
+        2. Press Alt+Shift+M
+        3. …
+    validations: { required: true }
+  - type: input
+    id: page
+    attributes:
+      label: The page it happened on
+      description: If it is public. Some pages are simply not articles, and that is a different answer.
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options: ["Distil on this device", "Send the page text", "Not sure"]
+    validations: { required: true }
+  - type: input
+    id: versions
+    attributes:
+      label: magpie and Chrome versions
+      placeholder: "magpie 0.1.0, Chrome 141 on Linux"
+    validations: { required: true }

@@ -132,7 +132,7 @@
 
   /* ── hero ───────────────────────────────────────────────────────────────── */
   .hero {
-    display: grid; grid-template-columns: 1fr 20rem; gap: 48px; align-items: center;
+    display: grid; grid-template-columns: 1fr 24rem; gap: 44px; align-items: center;
     padding-block: clamp(44px, 7vw, 84px);
   }
   @media (max-width: 54rem) { .hero { grid-template-columns: 1fr; gap: 36px; } }
@@ -179,81 +179,119 @@
   .shelf { fill: var(--sheet-2); stroke: var(--line); stroke-width: .5; }
   .chip-body { fill: none; stroke: var(--line-strong); stroke-width: 1.5; }
   .chip-pins { stroke: var(--line-strong); stroke-width: 1.5; stroke-linecap: round; fill: none; }
+  .chip-scan { fill: var(--red); opacity: 0; }
 
-  .bird-tile { fill: var(--ink); }
-  .bird-swell { fill: var(--paper); }
-  .bird-dot { fill: var(--red); }
+  .feather-dark { fill: var(--ink); }
+  .feather-light { fill: var(--paper); }
+  .beak { fill: var(--red); }
+  .eye { fill: var(--paper); }
+  .wing { fill: var(--ink); }
   .payload { fill: var(--red); }
+  .pluck { fill: var(--red); opacity: 0; }
 
-  /* Everything is animated in viewBox units, so the motion is the same at any
-     width and nothing here touches layout. */
   /* The carrier travels in viewBox units, so its origin is the viewBox. */
-  .carrier {
-    transform-box: view-box;
-    transform-origin: 0 0;
-  }
-  /* The payload shortens in place, so its origin is its own left edge — with
-     the viewBox origin it would scale away from the bird carrying it. */
-  .payload {
-    transform-box: fill-box;
-    transform-origin: left center;
+  .carrier { transform-box: view-box; transform-origin: 0 0; }
+  /* Everything else turns about its own middle. */
+  .payload { transform-box: fill-box; transform-origin: left center; }
+  .wing, .chip-scan, .pluck, .shelf.landed { transform-box: fill-box; transform-origin: center; }
+
+  /* ── the flight ───────────────────────────────────────────────────────────
+     Nine seconds, and the bird is never still for long: it comes in from off
+     the page, perches, lifts a line, climbs, crosses, hovers while the machine
+     works, crosses again, files it, and leaves. The y values arc rather than
+     slide, and the bank comes from the same keyframes. */
+  .carrier { animation: flight 9s cubic-bezier(.45, .05, .35, 1) infinite; }
+  @keyframes flight {
+    0%     { transform: translate(-34px, 34px) rotate(6deg); opacity: 0; }
+    4%     { transform: translate(0px, 40px) rotate(5deg); opacity: 1; }
+    9%     { transform: translate(34px, 56px) rotate(-4deg); opacity: 1; }   /* drops onto the page */
+    12%, 19% { transform: translate(44px, 52px) rotate(0deg); opacity: 1; }  /* perched, taking it */
+    24%    { transform: translate(70px, 30px) rotate(-9deg); opacity: 1; }   /* climbs away */
+    31%    { transform: translate(122px, 26px) rotate(-2deg); opacity: 1; }
+    36%, 52% { transform: translate(165px, 40px) rotate(0deg); opacity: 1; } /* hovers over the chip */
+    58%    { transform: translate(216px, 26px) rotate(-5deg); opacity: 1; }
+    66%, 74% { transform: translate(283px, 50px) rotate(0deg); opacity: 1; } /* files it */
+    82%    { transform: translate(324px, 22px) rotate(-11deg); opacity: 1; }
+    90%, 100% { transform: translate(364px, 10px) rotate(-12deg); opacity: 0; }
   }
 
-  .carrier { animation: carry 9s cubic-bezier(.5, 0, .3, 1) infinite; }
-  @keyframes carry {
-    0%, 4%    { transform: translate(47px, 70px); opacity: 0; }
-    9%        { transform: translate(47px, 70px); opacity: 1; }   /* lands on the page */
-    15%       { transform: translate(47px, 59px); opacity: 1; }   /* lifts it */
-    32%, 47%  { transform: translate(165px, 59px); opacity: 1; }  /* holds over the machine */
-    64%, 72%  { transform: translate(283px, 59px); opacity: 1; }  /* arrives at memory */
-    78%       { transform: translate(283px, 48px); opacity: 1; }  /* leaves it and lifts */
-    84%, 100% { transform: translate(283px, 40px); opacity: 0; }
+  /* Wings beat in flight and fold while perched or hovering. */
+  .wing { animation: beat .34s ease-in-out infinite; }
+  @keyframes beat {
+    0%, 100% { transform: rotate(0deg) scaleY(1); }
+    50%      { transform: rotate(-34deg) scaleY(.55); }
   }
 
-  /* Long when taken, short after the machine has been through it. */
-  .payload { animation: condense 9s cubic-bezier(.5, 0, .3, 1) infinite; }
+  /* The line it lifts, leaving the page. */
+  .pluck { animation: pluck 9s cubic-bezier(.45, .05, .35, 1) infinite; }
+  @keyframes pluck {
+    0%, 11%  { opacity: 0; transform: translate(0, 0); }
+    14%      { opacity: 1; transform: translate(0, 0); }
+    19%      { opacity: 1; transform: translate(4px, -6px) scaleX(.9); }
+    23%, 100% { opacity: 0; transform: translate(8px, -12px) scaleX(.8); }
+  }
+
+  /* What it carries: full length off the page, short after the machine. */
+  .payload { animation: condense 9s cubic-bezier(.45, .05, .35, 1) infinite; }
   @keyframes condense {
-    0%, 34%   { transform: scaleX(1); }
-    46%, 100% { transform: scaleX(.3); }
+    0%, 12%   { opacity: 0; transform: scaleX(1); }
+    19%, 38%  { opacity: 1; transform: scaleX(1); }
+    43%       { opacity: 1; transform: scaleX(.62); }   /* chunked */
+    48%, 70%  { opacity: 1; transform: scaleX(.26); }   /* folded into one */
+    74%, 100% { opacity: 0; transform: scaleX(.26); }
   }
 
-  /* The page gives up its text as the bird takes it. */
-  .page-lines .line { animation: taken 9s cubic-bezier(.5, 0, .3, 1) infinite; }
-  .page-lines .line:nth-child(2) { animation-delay: .05s; }
-  .page-lines .line:nth-child(3) { animation-delay: .1s; }
-  .page-lines .line:nth-child(4) { animation-delay: .15s; }
-  .page-lines .line:nth-child(5) { animation-delay: .2s; }
-  .page-lines .line:nth-child(6) { animation-delay: .25s; }
+  /* The page gives its text up. */
+  .page-lines .line { animation: taken 9s ease-in-out infinite; }
+  .page-lines .line:nth-child(1) { animation-delay: .02s; }
+  .page-lines .line:nth-child(2) { animation-delay: .06s; }
+  .page-lines .line:nth-child(3) { animation-delay: .10s; }
+  .page-lines .line:nth-child(4) { animation-delay: .14s; }
+  .page-lines .line:nth-child(5) { animation-delay: .18s; }
+  .page-lines .line:nth-child(6) { animation-delay: .22s; }
   @keyframes taken {
-    0%, 12%  { opacity: 1; }
-    20%, 88% { opacity: .22; }
-    96%, 100% { opacity: 1; }
+    0%, 14%   { opacity: 1; }
+    22%, 88%  { opacity: .2; }
+    97%, 100% { opacity: 1; }
   }
 
-  /* The work happening here, on this machine. */
-  .chip { animation: thinking 9s ease-in-out infinite; }
-  @keyframes thinking {
-    0%, 32%   { opacity: .45; }
-    36%, 44%  { opacity: 1; }
-    50%, 100% { opacity: .45; }
+  /* The machine doing the work, while the bird waits. */
+  .chip-scan { animation: scan 9s ease-in-out infinite; }
+  @keyframes scan {
+    0%, 36%  { opacity: 0; transform: translateY(0); }
+    40%      { opacity: 1; transform: translateY(0); }
+    46%      { opacity: 1; transform: translateY(24px); }
+    50%      { opacity: 1; transform: translateY(0); }
+    54%, 100% { opacity: 0; transform: translateY(24px); }
+  }
+  .chip { animation: working 9s ease-in-out infinite; }
+  @keyframes working {
+    0%, 34%   { opacity: .4; }
+    40%, 50%  { opacity: 1; }
+    56%, 100% { opacity: .4; }
   }
 
-  /* One more thing on the shelf. */
+  /* One more thing on the shelf, settling as it lands. */
   .shelf.landed { animation: filed 9s cubic-bezier(.16, 1, .3, 1) infinite; }
   @keyframes filed {
-    0%, 72%   { opacity: 0; }
-    80%, 94%  { opacity: 1; fill: var(--red); }
-    100%      { opacity: 0; }
+    0%, 68%   { opacity: 0; transform: scaleX(.2); fill: var(--red); }
+    74%       { opacity: 1; transform: scaleX(1.04); fill: var(--red); }
+    78%, 94%  { opacity: 1; transform: scaleX(1); fill: var(--red); }
+    100%      { opacity: 0; transform: scaleX(.2); fill: var(--red); }
   }
 
-  /* At rest it still reads as the whole story: the bird is over the machine,
-     the summary is short, and the shelf already has the memory on it. */
+  /* At rest it still reads as the whole story rather than a first frame: the
+     bird is over the machine, what it carries is already short, and the shelf
+     already holds the memory. */
   @media (prefers-reduced-motion: reduce) {
-    .carrier, .payload, .page-lines .line, .chip, .shelf.landed { animation: none; }
-    .carrier { transform: translate(165px, 59px); }
-    .payload { transform: scaleX(.3); }
-    .shelf.landed { opacity: 1; }
+    .carrier, .payload, .page-lines .line, .chip, .chip-scan, .shelf.landed, .wing, .pluck {
+      animation: none;
+    }
+    .carrier { transform: translate(165px, 40px); }
+    .payload { transform: scaleX(.26); opacity: 1; }
+    .shelf.landed { opacity: 1; fill: var(--red); }
     .chip { opacity: 1; }
+    .page-lines .line { opacity: .2; }
   }
 
   /* ── destinations ───────────────────────────────────────────────────────── */
@@ -267,6 +305,15 @@
   .dest {
     display: grid; gap: 6px; padding: 18px;
     background: var(--sheet); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .dest-mark { width: 22px; height: 22px; display: block; margin-bottom: 2px; }
+  .mono-tile { fill: var(--ink); }
+  .mono-letter {
+    fill: var(--paper);
+    font-family: var(--body);
+    font-size: 10px;
+    font-weight: 700;
+    text-anchor: middle;
   }
   .dest b { font-size: .9375rem; font-weight: 600; }
   .dest span { font-family: var(--mono); font-size: .6875rem; color: var(--faint); }
@@ -347,6 +394,7 @@
     <span class="masthead-right">
       <a href="#install">Install</a>
       <a href="https://github.com/anonalabs/magpie">Source</a>
+      <a href="mailto:support@anonalabs.com">Support</a>
       <button class="theme-toggle" id="theme" type="button" aria-label="Switch between light and dark">
         <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
           <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
@@ -373,47 +421,58 @@
     </div>
 
     <figure class="demo" aria-labelledby="demo-caption">
-      <svg viewBox="0 0 330 132" role="img" aria-label="A magpie takes text from a web page, condenses it on your own machine, and carries the summary to your memory layer.">
+      <svg viewBox="0 0 330 132" role="img" aria-label="A magpie lifts a line of text off a web page, carries it to your own machine where it is condensed, and files the short version in your memory layer.">
         <!-- ── the page ───────────────────────────────────────────────── -->
         <g class="station">
           <rect class="panel" x="4" y="16" width="86" height="86" rx="7"/>
           <g class="page-lines">
-            <rect class="line" x="14" y="28" width="66" height="4" rx="2"/>
-            <rect class="line" x="14" y="38" width="58" height="4" rx="2"/>
-            <rect class="line" x="14" y="48" width="66" height="4" rx="2"/>
-            <rect class="line" x="14" y="58" width="48" height="4" rx="2"/>
-            <rect class="line" x="14" y="68" width="62" height="4" rx="2"/>
-            <rect class="line" x="14" y="78" width="34" height="4" rx="2"/>
+            <rect class="line" x="14" y="30" width="66" height="4" rx="2"/>
+            <rect class="line" x="14" y="40" width="58" height="4" rx="2"/>
+            <rect class="line" x="14" y="50" width="66" height="4" rx="2"/>
+            <rect class="line" x="14" y="60" width="48" height="4" rx="2"/>
+            <rect class="line" x="14" y="70" width="62" height="4" rx="2"/>
+            <rect class="line" x="14" y="80" width="34" height="4" rx="2"/>
           </g>
-          <text class="label" x="47" y="116">a web page</text>
+          <rect class="pluck" x="14" y="50" width="66" height="4" rx="2"/>
+          <text class="label" x="47" y="118">a web page</text>
         </g>
 
         <!-- ── your machine ───────────────────────────────────────────── -->
         <g class="station">
-          <rect class="panel machine" x="122" y="16" width="86" height="86" rx="7"/>
+          <rect class="panel" x="122" y="16" width="86" height="86" rx="7"/>
           <g class="chip">
-            <rect class="chip-body" x="150" y="44" width="30" height="30" rx="5"/>
-            <path class="chip-pins" d="M157 44v-7M165 44v-7M173 44v-7M157 74v7M165 74v7M173 74v7M150 51h-7M150 59h-7M150 67h-7M180 51h7M180 59h7M180 67h7"/>
+            <rect class="chip-body" x="150" y="46" width="30" height="30" rx="5"/>
+            <path class="chip-pins" d="M157 46v-6M165 46v-6M173 46v-6M157 76v6M165 76v6M173 76v6M150 53h-6M150 61h-6M150 69h-6M180 53h6M180 61h6M180 69h6"/>
+            <rect class="chip-scan" x="152" y="48" width="26" height="3" rx="1.5"/>
           </g>
-          <text class="label" x="165" y="116">on your machine</text>
+          <text class="label" x="165" y="118">on your machine</text>
         </g>
 
         <!-- ── memory ─────────────────────────────────────────────────── -->
         <g class="station">
           <rect class="panel" x="240" y="16" width="86" height="86" rx="7"/>
-          <rect class="shelf" x="252" y="34" width="62" height="12" rx="3"/>
-          <rect class="shelf" x="252" y="52" width="62" height="12" rx="3"/>
-          <rect class="shelf landed" x="252" y="70" width="62" height="12" rx="3"/>
-          <text class="label" x="283" y="116">your memory</text>
+          <rect class="shelf" x="252" y="36" width="62" height="11" rx="3"/>
+          <rect class="shelf" x="252" y="52" width="62" height="11" rx="3"/>
+          <rect class="shelf landed" x="252" y="68" width="62" height="11" rx="3"/>
+          <text class="label" x="283" y="118">your memory</text>
         </g>
 
-        <!-- ── what the bird is carrying, and the bird ────────────────── -->
+        <!-- ── the magpie, and what it is carrying ────────────────────── -->
         <g class="carrier">
-          <rect class="payload" x="18" y="-3" width="44" height="6" rx="3"/>
+          <rect class="payload" x="4" y="7" width="34" height="4" rx="2"/>
           <g class="bird">
-            <rect class="bird-tile" x="-9" y="-9" width="18" height="18" rx="4.5"/>
-            <path class="bird-swell" d="M-9 9a9 9 0 0 1 9-9v9z"/>
-            <circle class="bird-dot" cx="3.6" cy="-3.4" r="2.6"/>
+            <!-- tail: the long one is the whole point of a magpie -->
+            <path class="feather-dark" d="M-4 1 L-21 6 L-20 2 L-4 -2 Z"/>
+            <!-- body and head -->
+            <path class="feather-dark" d="M-5 -1 C-5 -5 -1 -7 3 -6 C7 -5 9 -2 9 0 C9 3 6 5 2 5 C-2 5 -5 3 -5 -1 Z"/>
+            <!-- the white belly a magpie is known for -->
+            <path class="feather-light" d="M-2 1 C0 -1 4 -1 6 1 C5 4 0 4 -2 1 Z"/>
+            <!-- beak -->
+            <path class="beak" d="M8 -2 L13 -1 L8 1 Z"/>
+            <!-- eye -->
+            <circle class="eye" cx="5" cy="-3" r=".9"/>
+            <!-- wing, which beats -->
+            <path class="wing" d="M-3 -3 C0 -9 6 -9 7 -4 C4 -2 -1 -1 -3 -3 Z"/>
           </g>
         </g>
       </svg>
@@ -428,16 +487,40 @@
     </div>
     <div class="row3">
       <div class="dest">
+        <svg class="dest-mark" viewBox="-11.4 14.7 533.5 483.5" aria-hidden="true"><polygon points="463.18,110.35 167.22,222.23 134.86,312.21 188.93,375.46" fill="#e7413c"/>
+  <polygon points="132.99,25.53 -1.37,164.99 134.01,311.57" fill="#e7413c"/>
+  <polygon points="437.94,90.16 346.86,24.67 164.71,224.22" fill="#e7413c"/>
+  <polygon points="464.59,108.71 376.04,142.18 376.70,143.97 456.68,115.26 254.34,344.63 482.46,248.09 283.19,359.30 271.54,390.02 416.56,387.99 512.11,236.11" fill="#ce3430"/>
+  <polygon points="348.12,24.99 131.99,26.00 134.04,317.01 136.02,316.99 135.04,47.08 163.98,216.94 149.69,266.38" fill="#ce3430"/>
+  <polygon points="0.15,160.44 33.19,302.94 135.42,311.20" fill="#ce3430"/>
+  <polygon points="268.64,391.24 372.92,488.15 350.80,409.15" fill="#ce3430"/>
+  <polygon points="448.62,126.11 447.60,125.15 184.31,378.12 263.61,343.83" fill="#b02324"/>
+  <polygon points="136.13,28.98 133.98,310.68 165.03,226.11" fill="#b02324"/>
+  <polygon points="466.09,109.27 436.09,87.83 180.24,217.81 180.80,219.07" fill="#b02324"/>
+  <polygon points="503.68,237.95 503.09,236.75 302.26,322.23 282.70,362.44" fill="#b02324"/>
+  <polygon points="266.45,389.67 345.44,407.90 356.84,421.83 350.23,390.96 421.02,388.82 420.98,386.92 274.17,388.98 276.79,371.95" fill="#b02324"/></svg>
         <b>Anona Memory</b>
         <span>POST /v1/record</span>
         <p>Lists your spaces so you pick one.</p>
       </div>
       <div class="dest">
+        <!-- A monogram, not Mem0's logo. Drawing a company's mark and passing it
+             off as theirs would be a lie; bundling a scraped one is a trademark
+             decision that is not ours. This is the drop-in point for the real
+             asset when there is one. -->
+        <svg class="dest-mark" viewBox="0 0 16 16" aria-hidden="true">
+          <rect width="16" height="16" rx="4" class="mono-tile"/>
+          <text x="8" y="11.6" class="mono-letter">m</text>
+        </svg>
         <b>Mem0</b>
         <span>POST /v3/memories/add/</span>
         <p>Lists the users it already holds.</p>
       </div>
       <div class="dest">
+        <svg class="dest-mark" viewBox="0 0 16 16" aria-hidden="true">
+          <rect width="16" height="16" rx="4" class="mono-tile"/>
+          <text x="8" y="11.6" class="mono-letter">s</text>
+        </svg>
         <b>Supermemory</b>
         <span>POST /v3/documents</span>
         <p>Re-remembering updates, never duplicates.</p>
@@ -510,7 +593,11 @@
 
   <footer>
     <span>MIT. Bundles Mozilla's Readability and pdf.js.</span>
-    <span><a href="https://github.com/anonalabs/magpie">github.com/anonalabs/magpie</a> · <a href="https://anonalabs.com">Anona Labs</a></span>
+    <span>
+      <a href="mailto:support@anonalabs.com">support@anonalabs.com</a> ·
+      <a href="https://github.com/anonalabs/magpie">GitHub</a> ·
+      <a href="https://anonalabs.com">Anona Labs</a>
+    </span>
   </footer>
 </div>
 

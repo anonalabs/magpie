@@ -5,6 +5,12 @@ import { captureMetadata } from '../compose.js';
 export const mem0 = {
   id: 'mem0',
   label: 'Mem0',
+  // A monogram, deliberately — not Mem0's logo. Shipping a mark we do not have
+  // and cannot verify would be passing off a drawing as somebody's brand, and
+  // bundling a scraped one is a trademark decision that is not ours to take.
+  // Drop the real asset here when there is one to drop.
+  mark: { monogram: 'm' },
+
   keyPlaceholder: 'm0-...',
   fields: [
     { key: 'apiKey', label: 'API key', type: 'password', placeholder: 'm0-...', required: true },
