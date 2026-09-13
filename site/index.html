@@ -8,6 +8,10 @@
 <style>
   /* anonalabs/website's world: folded sheets of white paper, warm ink, one red. */
   :root {
+    /* Declared so the browser knows both themes are handled here: without it
+       Chromium's auto-dark is free to re-darken an already dark page, and
+       scrollbars and form controls stay in the wrong one. */
+    color-scheme: light dark;
     --paper: #ffffff;
     --sheet: #f7f6f4;
     --sheet-2: #eeece8;
@@ -59,6 +63,7 @@
     }
   }
   :root[data-theme="dark"] {
+    color-scheme: dark;
     --paper: #141211;
     --sheet: #1c1917;
     --sheet-2: #262220;
@@ -133,6 +138,7 @@
   .theme-toggle:hover { color: var(--ink); border-color: var(--line-strong); }
   .theme-toggle svg { width: 15px; height: 15px; }
   .theme-toggle .moon { display: none; }
+  :root[data-theme="light"] { color-scheme: light; }
   :root[data-theme="dark"] .theme-toggle .moon { display: block; }
   :root[data-theme="dark"] .theme-toggle .sun { display: none; }
   @media (prefers-color-scheme: dark) {
@@ -437,6 +443,7 @@
   .table-wrap { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-size: .875rem; }
   th, td { text-align: left; padding: 11px 16px 11px 0; border-bottom: 1px solid var(--line); }
+  td { color: var(--ink); }
   th {
     font-family: var(--mono); font-size: .6875rem; letter-spacing: .08em;
     text-transform: uppercase; color: var(--faint); font-weight: 400;

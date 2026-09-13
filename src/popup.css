@@ -5,6 +5,7 @@
    rather than anything invented here. */
 
 :root {
+  color-scheme: light dark;
   --bg: #ffffff;
   --surface: #f7f6f4;
   --sunken: #eeece8;
