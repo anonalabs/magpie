@@ -151,55 +151,109 @@
   .btn-ghost:hover { border-color: var(--ink); }
   .note { margin-top: 12px; font-size: .8125rem; color: var(--faint); }
 
-  /* ── the loop: a page condensing, then leaving ──────────────────────────── */
+  /* ── the loop: taken from the page, condensed here, carried to memory ──── */
   .demo {
-    background: var(--sheet); border: 1px solid var(--line); border-radius: 12px;
-    padding: 18px; display: grid; gap: 14px;
+    margin: 0;
+    background: var(--sheet);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 16px 12px;
   }
-  .demo-sheet { display: grid; gap: 6px; min-height: 132px; align-content: start; }
-  .bar { height: 6px; border-radius: 3px; background: var(--line-strong); }
-  .bar.long { width: 100%; } .bar.mid { width: 82%; } .bar.short { width: 54%; }
-
-  /* Twelve lines of page become three of summary, then the summary leaves. */
-  .bar.page { animation: fold 7s var(--ease, cubic-bezier(.16,1,.3,1)) infinite; }
-  .bar.page:nth-child(n+4) { animation-name: fold-away; }
-  .bar.sum { background: var(--red); opacity: 0; animation: unfold 7s cubic-bezier(.16,1,.3,1) infinite; }
-  .bar.sum:nth-child(2) { animation-delay: .06s; }
-  .bar.sum:nth-child(3) { animation-delay: .12s; }
-
-  @keyframes fold-away {
-    0%, 22% { opacity: 1; transform: none; }
-    42%, 88% { opacity: 0; transform: translateY(-8px) scaleY(.4); }
-    100% { opacity: 1; transform: none; }
-  }
-  @keyframes fold {
-    0%, 22% { opacity: 1; }
-    42%, 88% { opacity: .18; }
-    100% { opacity: 1; }
-  }
-  @keyframes unfold {
-    0%, 34% { opacity: 0; transform: translateY(6px); }
-    52%, 84% { opacity: 1; transform: none; }
-    96%, 100% { opacity: 0; transform: translateY(6px); }
+  .demo svg { width: 100%; height: auto; display: block; }
+  .demo figcaption {
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: .6875rem;
+    color: var(--faint);
+    text-align: center;
   }
 
-  .demo-flight { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding-top: 13px; }
-  .demo-dot {
-    width: 9px; height: 9px; border-radius: 50%; background: var(--red); flex: none;
-    animation: fly 7s cubic-bezier(.16,1,.3,1) infinite;
+  .panel { fill: var(--paper); stroke: var(--line); stroke-width: 1; }
+  .line { fill: var(--line-strong); }
+  .label {
+    fill: var(--faint);
+    font-family: var(--mono);
+    font-size: 7px;
+    text-anchor: middle;
   }
-  @keyframes fly {
-    0%, 56% { opacity: 0; transform: translateX(0); }
-    62% { opacity: 1; transform: translateX(0); }
-    80%, 88% { opacity: 1; transform: translateX(var(--flight, 150px)); }
-    92%, 100% { opacity: 0; transform: translateX(var(--flight, 150px)); }
-  }
-  .demo-label { font-family: var(--mono); font-size: .6875rem; color: var(--faint); margin-left: auto; }
+  .shelf { fill: var(--sheet-2); stroke: var(--line); stroke-width: .5; }
+  .chip-body { fill: none; stroke: var(--line-strong); stroke-width: 1.5; }
+  .chip-pins { stroke: var(--line-strong); stroke-width: 1.5; stroke-linecap: round; fill: none; }
 
+  .bird-tile { fill: var(--ink); }
+  .bird-swell { fill: var(--paper); }
+  .bird-dot { fill: var(--red); }
+  .payload { fill: var(--red); }
+
+  /* Everything is animated in viewBox units, so the motion is the same at any
+     width and nothing here touches layout. */
+  /* The carrier travels in viewBox units, so its origin is the viewBox. */
+  .carrier {
+    transform-box: view-box;
+    transform-origin: 0 0;
+  }
+  /* The payload shortens in place, so its origin is its own left edge — with
+     the viewBox origin it would scale away from the bird carrying it. */
+  .payload {
+    transform-box: fill-box;
+    transform-origin: left center;
+  }
+
+  .carrier { animation: carry 9s cubic-bezier(.5, 0, .3, 1) infinite; }
+  @keyframes carry {
+    0%, 4%    { transform: translate(47px, 70px); opacity: 0; }
+    9%        { transform: translate(47px, 70px); opacity: 1; }   /* lands on the page */
+    15%       { transform: translate(47px, 59px); opacity: 1; }   /* lifts it */
+    32%, 47%  { transform: translate(165px, 59px); opacity: 1; }  /* holds over the machine */
+    64%, 72%  { transform: translate(283px, 59px); opacity: 1; }  /* arrives at memory */
+    78%       { transform: translate(283px, 48px); opacity: 1; }  /* leaves it and lifts */
+    84%, 100% { transform: translate(283px, 40px); opacity: 0; }
+  }
+
+  /* Long when taken, short after the machine has been through it. */
+  .payload { animation: condense 9s cubic-bezier(.5, 0, .3, 1) infinite; }
+  @keyframes condense {
+    0%, 34%   { transform: scaleX(1); }
+    46%, 100% { transform: scaleX(.3); }
+  }
+
+  /* The page gives up its text as the bird takes it. */
+  .page-lines .line { animation: taken 9s cubic-bezier(.5, 0, .3, 1) infinite; }
+  .page-lines .line:nth-child(2) { animation-delay: .05s; }
+  .page-lines .line:nth-child(3) { animation-delay: .1s; }
+  .page-lines .line:nth-child(4) { animation-delay: .15s; }
+  .page-lines .line:nth-child(5) { animation-delay: .2s; }
+  .page-lines .line:nth-child(6) { animation-delay: .25s; }
+  @keyframes taken {
+    0%, 12%  { opacity: 1; }
+    20%, 88% { opacity: .22; }
+    96%, 100% { opacity: 1; }
+  }
+
+  /* The work happening here, on this machine. */
+  .chip { animation: thinking 9s ease-in-out infinite; }
+  @keyframes thinking {
+    0%, 32%   { opacity: .45; }
+    36%, 44%  { opacity: 1; }
+    50%, 100% { opacity: .45; }
+  }
+
+  /* One more thing on the shelf. */
+  .shelf.landed { animation: filed 9s cubic-bezier(.16, 1, .3, 1) infinite; }
+  @keyframes filed {
+    0%, 72%   { opacity: 0; }
+    80%, 94%  { opacity: 1; fill: var(--red); }
+    100%      { opacity: 0; }
+  }
+
+  /* At rest it still reads as the whole story: the bird is over the machine,
+     the summary is short, and the shelf already has the memory on it. */
   @media (prefers-reduced-motion: reduce) {
-    .bar.page, .bar.sum, .demo-dot { animation: none; }
-    .bar.sum { opacity: 1; }
-    .demo-dot { opacity: 1; }
+    .carrier, .payload, .page-lines .line, .chip, .shelf.landed { animation: none; }
+    .carrier { transform: translate(165px, 59px); }
+    .payload { transform: scaleX(.3); }
+    .shelf.landed { opacity: 1; }
+    .chip { opacity: 1; }
   }
 
   /* ── destinations ───────────────────────────────────────────────────────── */
@@ -318,24 +372,53 @@
       <p class="note" id="store-note">Not on the Chrome Web Store yet — two-minute install below.</p>
     </div>
 
-    <div class="demo" aria-label="A page of text condensing into a short summary, which is then sent">
-      <div class="demo-sheet">
-        <div class="bar page long"></div>
-        <div class="bar page mid"></div>
-        <div class="bar page long"></div>
-        <div class="bar page long"></div>
-        <div class="bar page mid"></div>
-        <div class="bar page long"></div>
-        <div class="bar page short"></div>
-        <div class="bar sum long"></div>
-        <div class="bar sum mid"></div>
-        <div class="bar sum short"></div>
-      </div>
-      <div class="demo-flight">
-        <span class="demo-dot"></span>
-        <span class="demo-label">→ your memory layer</span>
-      </div>
-    </div>
+    <figure class="demo" aria-labelledby="demo-caption">
+      <svg viewBox="0 0 330 132" role="img" aria-label="A magpie takes text from a web page, condenses it on your own machine, and carries the summary to your memory layer.">
+        <!-- ── the page ───────────────────────────────────────────────── -->
+        <g class="station">
+          <rect class="panel" x="4" y="16" width="86" height="86" rx="7"/>
+          <g class="page-lines">
+            <rect class="line" x="14" y="28" width="66" height="4" rx="2"/>
+            <rect class="line" x="14" y="38" width="58" height="4" rx="2"/>
+            <rect class="line" x="14" y="48" width="66" height="4" rx="2"/>
+            <rect class="line" x="14" y="58" width="48" height="4" rx="2"/>
+            <rect class="line" x="14" y="68" width="62" height="4" rx="2"/>
+            <rect class="line" x="14" y="78" width="34" height="4" rx="2"/>
+          </g>
+          <text class="label" x="47" y="116">a web page</text>
+        </g>
+
+        <!-- ── your machine ───────────────────────────────────────────── -->
+        <g class="station">
+          <rect class="panel machine" x="122" y="16" width="86" height="86" rx="7"/>
+          <g class="chip">
+            <rect class="chip-body" x="150" y="44" width="30" height="30" rx="5"/>
+            <path class="chip-pins" d="M157 44v-7M165 44v-7M173 44v-7M157 74v7M165 74v7M173 74v7M150 51h-7M150 59h-7M150 67h-7M180 51h7M180 59h7M180 67h7"/>
+          </g>
+          <text class="label" x="165" y="116">on your machine</text>
+        </g>
+
+        <!-- ── memory ─────────────────────────────────────────────────── -->
+        <g class="station">
+          <rect class="panel" x="240" y="16" width="86" height="86" rx="7"/>
+          <rect class="shelf" x="252" y="34" width="62" height="12" rx="3"/>
+          <rect class="shelf" x="252" y="52" width="62" height="12" rx="3"/>
+          <rect class="shelf landed" x="252" y="70" width="62" height="12" rx="3"/>
+          <text class="label" x="283" y="116">your memory</text>
+        </g>
+
+        <!-- ── what the bird is carrying, and the bird ────────────────── -->
+        <g class="carrier">
+          <rect class="payload" x="18" y="-3" width="44" height="6" rx="3"/>
+          <g class="bird">
+            <rect class="bird-tile" x="-9" y="-9" width="18" height="18" rx="4.5"/>
+            <path class="bird-swell" d="M-9 9a9 9 0 0 1 9-9v9z"/>
+            <circle class="bird-dot" cx="3.6" cy="-3.4" r="2.6"/>
+          </g>
+        </g>
+      </svg>
+      <figcaption id="demo-caption">Taken from the page, condensed here, carried to memory.</figcaption>
+    </figure>
   </div>
 
   <section>
@@ -458,15 +541,4 @@
     root.dataset.theme = dark ? 'light' : 'dark';
     try { localStorage.setItem('magpie-theme', root.dataset.theme); } catch { /* fine */ }
   });
-
-  // The dot flies to the label, whatever width the label happens to be.
-  const flight = document.querySelector('.demo-flight');
-  const dot = document.querySelector('.demo-dot');
-  const setFlight = () => {
-    if (!flight || !dot) return;
-    const label = flight.querySelector('.demo-label');
-    dot.style.setProperty('--flight', `${Math.max(60, label.offsetLeft - dot.offsetWidth - 14)}px`);
-  };
-  setFlight();
-  addEventListener('resize', setFlight);
 </script>
