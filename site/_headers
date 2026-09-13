@@ -1,5 +1,10 @@
-# Applies to static assets, which on this site is everything — there is no
+# Applies to static assets, which on this site is everything: there is no
 # Worker script, so nothing here is generated at request time.
+#
+# No Content-Type here. Cloudflare sets it for static assets and drops any
+# override, verified against the live response, so the charset is carried by
+# the <meta charset> first line of each page. Without it UTF-8 is read as
+# Latin-1 and every x, dash and arrow in the page turns to mojibake.
 
 /*
   X-Content-Type-Options: nosniff
