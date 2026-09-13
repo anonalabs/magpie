@@ -1,4 +1,4 @@
-// The engine. Owns the WebLLM instance, the map-reduce, and — for distill mode —
+// The engine. Owns the WebLLM instance, the map-reduce, and, for distill mode,
 // the provider write.
 //
 // The write happens here rather than in the service worker because the worker is
@@ -16,14 +16,14 @@ const sizeOf = (model) => Object.keys(MODELS).find((size) => MODELS[size].id ===
 import { isDeviceLost, isGpuFault } from './lib/gpu.js';
 import { createEnginePool } from './lib/engine-pool.js';
 // The legacy build, deliberately. The modern one calls
-// Uint8Array.prototype.toHex without defining it — a very recent method that
+// Uint8Array.prototype.toHex without defining it, a very recent method that
 // Chrome did not have until long after this extension's floor of 116, so the
 // modern build fails on any browser magpie claims to support. Only the legacy
 // build ships the polyfill.
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { pdfBody, MAX_PAGES } from './lib/pdf-text.js';
 
-// A file, not a data: URI — MV3's CSP refuses the latter.
+// A file, not a data: URI. MV3's CSP refuses the latter.
 pdfjs.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.js');
 
 const jobs = new Map();        // tabId -> job state, the record the popup reads
@@ -38,8 +38,8 @@ function localAppConfig(model) {
 }
 
 // Loading, sharing, discarding and queueing all live in engine-pool.js, where
-// they can be tested. They produced the same class of bug twice here — a handle
-// used after the engine behind it was gone — and neither time was catchable in
+// they can be tested. They produced the same class of bug twice here, a handle
+// used after the engine behind it was gone, and neither time was catchable in
 // this file, because it only runs behind WebGPU.
 const pool = createEnginePool({
   create: async (model, { onProgress }) => {
@@ -77,7 +77,7 @@ const prompts = {
     `These are section summaries of one article, in order. Write a single 4-6 sentence summary of the whole article. Do not refer to "sections" or to the summarising process.\n\nTitle: ${title}\n\n${text}`,
 };
 
-// One engine, one GPU, one request at a time — and always the engine that
+// One engine, one GPU, one request at a time, and always the engine that
 // exists when the request runs, never the one that existed when it was queued.
 const complete = (model, prompt) => pool.run(model, (engine) => rawComplete(engine, prompt));
 
@@ -138,7 +138,7 @@ async function extractPdf(url) {
 
   const body = pdfBody(pages, doc.numPages);
   if (!body.text.replace(/\(Summarised from[^)]*\)/, '').trim()) {
-    const error = new Error('This PDF has no text in it — it looks scanned. Reading that needs OCR, which magpie does not do.');
+    const error = new Error('This PDF has no text in it. It looks scanned. Reading that needs OCR, which magpie does not do.');
     error.code = 'pdf_no_text';
     throw error;
   }
@@ -187,7 +187,7 @@ function update(job, patch) {
   jobs.set(job.tabId, job);
 
   // WebLLM reports load progress many times a second and every broadcast wakes
-  // the service worker, so the stream is throttled — but a state change or a
+  // the service worker, so the stream is throttled, but a state change or a
   // finished job is never delayed, because those are what the badge reacts to.
   const now = Date.now();
   const notable = job.state !== previousState || !RUNNING.has(job.state);
@@ -201,7 +201,7 @@ function update(job, patch) {
 }
 
 /**
- * WebLLM's own progress text is a paragraph — "Fetching param cache[9/30]:
+ * WebLLM's own progress text is a paragraph: "Fetching param cache[9/30]:
  * 227MB fetched. 27% completed, 68 secs elapsed. It can take a while when we
  * first visit this page…". True, and far too long for a 360px panel, so the
  * phase is named here and the numbers ride the progress bar instead.
@@ -222,7 +222,7 @@ function describeLoad(report) {
  * Hands a finished summary to the service worker, which owns the queue.
  *
  * This document cannot reach chrome.storage, so the message is the only route to
- * disk — and it is also what wakes a worker that has long since been killed. It
+ * disk, and it is also what wakes a worker that has long since been killed. It
  * is retried rather than attempted once: dropping it would throw away the whole
  * point of the capture at the very last step.
  */
@@ -281,13 +281,13 @@ async function runDistill({ job: incoming, model, draft = false }) {
         try {
           return await complete(model, prompt);
         } catch (err) {
-          // Any GPU-level fault leaves the engine suspect, and it is cached —
+          // Any GPU-level fault leaves the engine suspect, and it is cached,
           // so without this, one fault breaks every capture until the extension
           // is reloaded. Discard it and rebuild once. The weights are already
           // cached, so this costs seconds rather than another download.
           if (!isGpuFault(err) || attempt > 0) throw err;
           discardEngine();
-          update(job, { state: 'loading', loadProgress: 0, stage: 'The GPU stumbled — reloading the model' });
+          update(job, { state: 'loading', loadProgress: 0, stage: 'The GPU stumbled, reloading the model' });
         }
       }
     };
@@ -296,7 +296,7 @@ async function runDistill({ job: incoming, model, draft = false }) {
      * An empty answer almost always means the prompt overran the model's context
      * window: the token count is an estimate, and a page dense with URLs or code
      * costs far more than its length suggests. Halving the input and trying
-     * again is what stops that estimate being load-bearing — it is cheaper to
+     * again is what stops that estimate being load-bearing: it is cheaper to
      * spend an extra call than to lose the capture.
      */
     const summarise = async (text, build, stage, step, depth = 0) => {
@@ -314,7 +314,7 @@ async function runDistill({ job: incoming, model, draft = false }) {
 
       const parts = [];
       for (const half of halves) {
-        parts.push(await summarise(half, build, `${stage} — retrying smaller`, step, depth + 1));
+        parts.push(await summarise(half, build, `${stage}, retrying smaller`, step, depth + 1));
       }
       return parts.filter(Boolean).join(' ');
     };
@@ -409,7 +409,7 @@ function classify(err, model) {
 
   if (isGpuFault(err)) {
     // A retry does not reduce memory pressure, and these faults nearly always
-    // are memory pressure — so the offer is a model that needs less of it, and
+    // are memory pressure, so the offer is a model that needs less of it, and
     // only when there is no smaller one left does it become "send page text".
     const smaller = model ? smallerThan(sizeOf(model)) : null;
     return {

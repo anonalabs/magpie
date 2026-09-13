@@ -2,8 +2,8 @@
 // when the GPU faults, and making sure requests never straddle a rebuild.
 //
 // Extracted from the offscreen document and given an injected `create` so it can
-// be tested. It has produced the same class of bug twice — a handle used after
-// the engine behind it was gone — and neither time was catchable where it lived,
+// be tested. It has produced the same class of bug twice, a handle used after
+// the engine behind it was gone, and neither time was catchable where it lived,
 // because the code sat behind WebGPU that no test machine here has.
 //
 // Three rules, each earned:
@@ -13,7 +13,7 @@
 //      yet and started a second full load.
 //   2. Tearing down and building up are serialised. WebLLM's unload releases
 //      state the replacement is claiming, so running them at once can unload the
-//      model that just loaded — reported as "Model not loaded" on an engine that
+//      model that just loaded, reported as "Model not loaded" on an engine that
 //      had in fact just loaded.
 //   3. A queued request resolves the engine when it runs, never when it is
 //      queued. Otherwise one job discarding a faulted engine leaves everything
@@ -74,7 +74,7 @@ export function createEnginePool({ create }) {
     return teardown;
   }
 
-  /** One model, one GPU, one request at a time — and always the current engine. */
+  /** One model, one GPU, one request at a time, and always the current engine. */
   function run(model, fn) {
     const task = queue.then(async () => fn(await get(model)));
     // The queue tracks ordering, not outcomes: one failure must not poison

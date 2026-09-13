@@ -1,11 +1,11 @@
-// Mem0 — https://docs.mem0.ai
+// Mem0: https://docs.mem0.ai
 
 import { captureMetadata } from '../compose.js';
 
 export const mem0 = {
   id: 'mem0',
   label: 'Mem0',
-  // A monogram, deliberately — not Mem0's logo. Shipping a mark we do not have
+  // A monogram, deliberately: not Mem0's logo. Shipping a mark we do not have
   // and cannot verify would be passing off a drawing as somebody's brand, and
   // bundling a scraped one is a trademark decision that is not ours to take.
   // Drop the real asset here when there is one to drop.
@@ -39,8 +39,8 @@ export const mem0 = {
           return { ok: false, message: payload?.detail ?? payload?.message ?? describeStatus(res.status) };
         }
 
-        // The endpoint is called "get users" but returns every entity kind —
-        // agents, apps and runs as well — distinguished only by `type`. Offering
+        // The endpoint is called "get users" but returns every entity kind,
+        // agents, apps and runs as well, distinguished only by `type`. Offering
         // an agent as a user id would file your reading under a bot.
         return {
           ok: true,

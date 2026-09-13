@@ -32,13 +32,13 @@ export function missingFields(provider, config = {}) {
 /**
  * Send one capture to one provider.
  *
- * Runs in the service worker or the offscreen document — never a content script.
+ * Runs in the service worker or the offscreen document, never a content script.
  * Both of those are extension contexts, which are exempt from CORS for hosts in
  * host_permissions; a content script is not, and Anona's ALLOWED_ORIGINS does
  * not include chrome-extension:// origins.
  */
 /**
- * Ask a provider to list the real values for one of its fields — Anona's spaces,
+ * Ask a provider to list the real values for one of its fields, Anona's spaces,
  * today. Returns {ok:false, message} rather than throwing: a provider being
  * unreachable must never be able to block configuring the extension, since
  * typing the value by hand still works.
@@ -68,7 +68,7 @@ export async function push(providerId, capture, config) {
     return {
       ok: false,
       code: 'content_too_long',
-      message: `This page is too long to send whole — ${capture.content.length.toLocaleString()} characters, `
+      message: `This page is too long to send whole: ${capture.content.length.toLocaleString()} characters, `
         + `and ${provider.label} accepts ${provider.maxContentChars.toLocaleString()}.`,
       recover: 'distill',
       provider: provider.id,

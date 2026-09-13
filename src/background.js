@@ -71,7 +71,7 @@ async function extractActiveTab(tabId) {
  * `mode` overrides the setting for this capture alone and never writes it back.
  * The recovery buttons use it: "Send the page text instead" used to call
  * saveSettings, so one click in an error dialog silently moved every future
- * capture to sending whole articles — 270x the content at the provider, and
+ * capture to sending whole articles: 270x the content at the provider, and
  * priced on it. A button that reads as "just this once" has to be just this once.
  */
 export async function startCapture(tabId, mode) {
@@ -167,7 +167,7 @@ function describeDestination(settings) {
  * failed write is a retry rather than lost work.
  */
 async function commit(record) {
-  // Composed once, here, so the record on disk is exactly what will be sent —
+  // Composed once, here, so the record on disk is exactly what will be sent,
   // a retry never has to reassemble anything.
   const stored = await captures.enqueue({
     ...record,
@@ -221,7 +221,7 @@ async function drain() {
 /**
  * One alarm for the soonest due record. Alarms outlive the worker; timers do not.
  *
- * Guarded, because chrome.alarms is undefined without its permission — and a
+ * Guarded, because chrome.alarms is undefined without its permission, and a
  * permission added in a new build is invisible to Chrome until the extension is
  * reloaded, not merely rebuilt. Calling it unguarded at the top of the worker
  * threw during startup, which killed the whole worker and made every capture
@@ -377,7 +377,7 @@ chrome.runtime.onStartup.addListener(installMenus);
 
 /**
  * A selection is stored exactly as selected: no model, instant, and it works on
- * a machine with no WebGPU. You already chose those words — summarising them
+ * a machine with no WebGPU. You already chose those words; summarising them
  * into a shorter paraphrase discards the only thing the selection had.
  */
 async function captureSelection(tab, info) {
@@ -437,7 +437,7 @@ chrome.contextMenus?.onClicked.addListener((info, tab) => {
  * Brings the in-page button into line with the optional permission, and reports
  * exactly what happened at every step.
  *
- * It never throws. It used to, and the caller reported "Done." regardless — so a
+ * It never throws. It used to, and the caller reported "Done." regardless, so a
  * failed registration produced a success message and no button, which is
  * indistinguishable from the feature simply not working.
  */
@@ -449,7 +449,7 @@ async function syncInPage() {
 
     // Always cleared first, never "it exists so we are done". Registrations
     // persist across sessions, so an old one made by a previous version survives
-    // an update — with that version's match patterns. Treating it as current
+    // an update, with that version's match patterns. Treating it as current
     // left a registration that matched nothing.
     await chrome.scripting.unregisterContentScripts({ ids: [IN_PAGE_SCRIPT_ID] }).catch(() => {});
     if (!status.granted) return status;
@@ -466,7 +466,7 @@ async function syncInPage() {
     status.registered = true;
 
     // A content script only applies to pages loaded after it is registered, so
-    // without this the button appears on nothing already open — including the
+    // without this the button appears on nothing already open, including the
     // tab the reader was on when they turned it on.
     status.injected = await injectIntoOpenTabs();
   } catch (err) {
@@ -543,7 +543,7 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
       //
       // Answered in the job shape, not as the stored record. Returning the
       // record handed back state "done", which the popup has no case for, so
-      // every successful distill rendered as a failure — and only the distill
+      // every successful distill rendered as a failure, and only the distill
       // path, because raw mode is wrapped on the way out of startCapture.
       return respondAsync(async () => jobFromRecord(await commit(msg.record)), respond);
     case MSG.LIST_CAPTURES:

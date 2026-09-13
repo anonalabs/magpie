@@ -6,18 +6,18 @@
 //
 // Note what is NOT here: the upstream CDN URL of each model library. Those are
 // build-time only (scripts/fetch-wasm.mjs) and must never reach the shipped
-// bundle — at runtime the library is loaded from inside the extension, and a CDN
+// bundle: at runtime the library is loaded from inside the extension, and a CDN
 // URL in the bundle is the thing scripts/check-no-remote-code.mjs exists to
 // catch.
 
 export const MODELS = {
   // For integrated graphics. Less than half the video memory of the next one up
   // and the same context window, which makes it the real answer to a GPU that
-  // keeps faulting — those faults are almost always memory pressure, and a
+  // keeps faulting: those faults are almost always memory pressure, and a
   // retry does not reduce memory pressure.
   tiny: {
     id: 'gemma3-1b-it-q4f16_1-MLC',
-    label: 'Tiny — Gemma 3 1B',
+    label: 'Tiny (Gemma 3 1B)',
     note: 'lowest memory, for integrated graphics · ~700 MB',
     weightsUrl: 'https://huggingface.co/mlc-ai/gemma3-1b-it-q4f16_1-MLC',
     libFile: 'gemma3-1b-it-q4f16_1_cs1k-webgpu.wasm',
@@ -27,7 +27,7 @@ export const MODELS = {
   },
   small: {
     id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
-    label: 'Small — Qwen2.5 1.5B',
+    label: 'Small (Qwen2.5 1.5B)',
     note: 'a good default · ~1.6 GB',
     weightsUrl: 'https://huggingface.co/mlc-ai/Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
     libFile: 'Qwen2-1.5B-Instruct-q4f16_1_cs1k-webgpu.wasm',
@@ -37,7 +37,7 @@ export const MODELS = {
   },
   medium: {
     id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
-    label: 'Medium — Llama 3.2 3B',
+    label: 'Medium (Llama 3.2 3B)',
     note: 'best summaries, most memory · ~2.3 GB',
     weightsUrl: 'https://huggingface.co/mlc-ai/Llama-3.2-3B-Instruct-q4f16_1-MLC',
     libFile: 'Llama-3.2-3B-Instruct-q4f16_1_cs1k-webgpu.wasm',
@@ -61,7 +61,7 @@ export function smallerThan(size) {
 
 /**
  * A WebLLM appConfig for one model, built here rather than taken from
- * prebuiltAppConfig — importing that would pull ~150 entries into the bundle,
+ * prebuiltAppConfig: importing that would pull ~150 entries into the bundle,
  * every one of them naming a .wasm on a CDN.
  */
 export function appConfigFor(model, libUrl) {

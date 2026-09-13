@@ -1,7 +1,7 @@
 // Asking for the optional all-sites permission, from a tab.
 //
 // This exists because a popup cannot do it. Chrome closes the popup to show the
-// permission prompt, which destroys the page that was awaiting the answer — the
+// permission prompt, which destroys the page that was awaiting the answer, the
 // checkbox appears to do nothing at all. A normal extension page survives the
 // prompt, so the answer actually comes back.
 
@@ -27,7 +27,7 @@ async function refresh() {
 $('allow').onclick = async () => {
   // Chrome re-reads an unpacked extension's FILES from disk on every load, but
   // caches the parsed MANIFEST until the extension is reloaded. So a fresh build
-  // can serve this very page while Chrome still runs the previous manifest — and
+  // can serve this very page while Chrome still runs the previous manifest, and
   // the only symptom is "Only permissions specified in the manifest may be
   // requested", which sounds like a bug in the request rather than a stale load.
   if (!chrome.runtime.getManifest().optional_host_permissions?.length) {
@@ -66,7 +66,7 @@ $('allow').onclick = async () => {
   // will look first and a content script normally reaches none of them.
   report('good', sync.injected
     ? `Done. The button is on ${sync.injected} open tab${sync.injected === 1 ? '' : 's'} already, and on every page from now on.`
-    : 'Done, but no open tab could take it — open a new page and look in the corner.', true);
+    : 'Done, but no open tab could take it. Open a new page and look in the corner.', true);
 };
 
 $('close').onclick = () => window.close();

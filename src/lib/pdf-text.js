@@ -27,7 +27,7 @@ export function joinPages(pages) {
  *
  * Deliberately not metadata-only: memory layers extract from content and largely
  * ignore metadata, so a caveat stored there would be invisible at exactly the
- * moment it matters — when a summary of the opening chapter is recalled as
+ * moment it matters, when a summary of the opening chapter is recalled as
  * though it covered the whole document.
  */
 export function truncationNotice(pagesRead, pagesTotal) {
@@ -52,7 +52,7 @@ export function pdfBody(pages, pagesTotal, maxPages = MAX_PAGES) {
   };
 }
 
-/** Whether this is a PDF, from the URL alone — before anything has been fetched. */
+/** Whether this is a PDF, from the URL alone, before anything has been fetched. */
 export function looksLikePdf(url) {
   try {
     // The query string is not part of the name: ...\/paper.pdf?download=1 is a PDF.

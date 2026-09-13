@@ -211,7 +211,7 @@ describe('anona space listing', () => {
     expect(res.message).toMatch(/not recognised/);
   });
 
-  it('does not throw when the network is gone — typing the name still works', async () => {
+  it('does not throw when the network is gone: typing the name still works', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Failed to fetch')));
     const res = await loadFieldOptions('anona', 'spaceId', withKey);
     expect(res).toMatchObject({ ok: false });

@@ -52,7 +52,7 @@ describe('isGpuFault', () => {
     ))).toBe(true);
   });
 
-  it('covers a lost device too — the engine is suspect either way', () => {
+  it('covers a lost device too: the engine is suspect either way', () => {
     expect(isGpuFault(new Error('vkQueueSubmit failed with VK_ERROR_DEVICE_LOST'))).toBe(true);
     expect(isGpuFault(new Error('Device was lost'))).toBe(true);
   });

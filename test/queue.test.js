@@ -115,7 +115,7 @@ describe('prune', () => {
   });
 
   it('never discards work that has not finished', () => {
-    // Unfinished records are not history — they are things that still have to
+    // Unfinished records are not history: they are things that still have to
     // happen, and pruning them would be the data loss this whole piece exists
     // to prevent.
     const records = [

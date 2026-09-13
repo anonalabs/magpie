@@ -1,8 +1,8 @@
 /* magpie popup.
    The scene: a panel that opens over whatever the reader is reading, for two
-   seconds at a time. Colour and type are anonalabs/website's — its DESIGN.md
+   seconds at a time. Colour and type are anonalabs/website's: its DESIGN.md
    describes the world as "folded sheets of white paper, warm ink, and one red"
-   — rather than anything invented here. */
+   rather than anything invented here. */
 
 :root {
   --bg: #ffffff;

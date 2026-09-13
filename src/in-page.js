@@ -4,7 +4,7 @@
 // removes it rather than leaving it declared and inert.
 //
 // Everything lives inside a shadow root. A page's own stylesheet cannot reach in
-// and this button's styles cannot leak out — the alternative is a button that
+// and this button's styles cannot leak out. The alternative is a button that
 // inherits some site's `button { width: 100% }` and covers the article.
 
 const HOST_ID = 'magpie-in-page-root';
@@ -40,7 +40,7 @@ async function init() {
     clearTimeout(resetTimer);
     button.dataset.state = state;
     label.textContent = text ?? '';
-    button.title = text ? `magpie — ${text}` : 'Remember this page';
+    button.title = text ? `magpie: ${text}` : 'Remember this page';
     // A receipt that never clears would read as the state of the next page too.
     if (state === 'good' || state === 'bad') {
       resetTimer = setTimeout(() => { button.dataset.state = 'idle'; label.textContent = ''; }, 4000);

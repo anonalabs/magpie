@@ -125,7 +125,7 @@ describe('reducePlan', () => {
 describe('estimateTokens', () => {
   it('never under-counts the text that used to break it', () => {
     // A flat length/4 measured 43% low on code and 54% low on URLs, and
-    // under-counting overfills the context window — which comes back as an
+    // under-counting overfills the context window, which comes back as an
     // empty summary rather than an error.
     const cases = [
       ['urls', 'see https://app.slack.com/client/T01ABCD/C09XYZ/thread-1757 and ping @alice '.repeat(30), 2.6],

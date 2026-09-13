@@ -1,6 +1,6 @@
 // Splitting an article to fit a 4096-token context window.
 //
-// Pure: no browser APIs, no imports. That is deliberate — this is the only part
+// Pure: no browser APIs, no imports. That is deliberate: this is the only part
 // of magpie whose behaviour can be pinned by fast unit tests, so everything that
 // can live here does.
 //
@@ -22,7 +22,7 @@ const PIECES = /[A-Za-z0-9]+|[^\sA-Za-z0-9]/g;
  *
  * The flat length/4 this used to be is right for English prose and badly wrong
  * for anything else: measured 43% low on code and 54% low on text full of URLs.
- * Underestimating is the dangerous direction — it overfills the context window,
+ * Underestimating is the dangerous direction: it overfills the context window,
  * and an overflowing prompt comes back as an empty summary rather than an error.
  *
  * Still an estimate, not a tokenizer. It is deliberately pessimistic, and
@@ -38,7 +38,7 @@ export function estimateTokens(text) {
     tokens += /^[A-Za-z0-9]+$/.test(piece) ? Math.max(1, Math.ceil(piece.length / CHARS_PER_TOKEN)) : 1;
   }
 
-  // Scripts with no word runs at all — CJK and similar — match nothing above,
+  // Scripts with no word runs at all, CJK and similar, match nothing above,
   // so the flat ratio is the floor rather than the answer.
   return Math.max(tokens, Math.ceil(value.length / CHARS_PER_TOKEN));
 }
@@ -54,7 +54,7 @@ export function inputBudget(contextWindow, { promptTokens = 150, outputTokens = 
   return budget;
 }
 
-/** Paragraph, heading and list boundaries — one or more blank lines. */
+/** Paragraph, heading and list boundaries: one or more blank lines. */
 function byBlankLine(text) {
   return text.split(/\n\s*\n+/).map((s) => s.trim()).filter(Boolean);
 }
@@ -185,7 +185,7 @@ export function reducePlan(summaries, budgetTokens) {
  * Cuts a piece of text roughly in half, at the best boundary near the middle.
  *
  * Used when the model answers with nothing, which nearly always means the prompt
- * overran the context window — the estimate above is only an estimate, and this
+ * overran the context window; the estimate above is only an estimate, and this
  * is what stops it being load-bearing. Returns a single-element array when there
  * is no boundary to cut on, so the caller can tell the difference between
  * "smaller" and "cannot be made smaller".
@@ -210,7 +210,7 @@ export function splitInHalf(text) {
     }
   }
 
-  // No boundary anywhere — one unbroken run. Cut it rather than give up.
+  // No boundary anywhere: one unbroken run. Cut it rather than give up.
   const left = value.slice(0, middle).trim();
   const right = value.slice(middle).trim();
   return left && right ? [left, right] : [value];

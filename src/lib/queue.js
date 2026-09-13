@@ -1,7 +1,7 @@
 // The rules a queued capture follows: when to try again, when to stop, what
 // counts as the same page, and what to keep.
 //
-// Pure — no storage, no chrome, no clock beyond what is passed in. This is the
+// Pure, no storage, no chrome, no clock beyond what is passed in. This is the
 // part of durability that can be tested, so everything that can live here does.
 
 /**
@@ -92,7 +92,7 @@ export const DONE_HISTORY_LIMIT = 200;
 
 /**
  * Trims landed history while never discarding unfinished work. Pending and
- * blocked records are not history — they are things that still have to happen.
+ * blocked records are not history: they are things that still have to happen.
  */
 export function prune(records, limit = DONE_HISTORY_LIMIT) {
   const unfinished = records.filter((r) => r.state !== 'done');

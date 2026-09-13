@@ -27,7 +27,7 @@ One record per capture, in `chrome.storage.local` under `captures`:
 ```js
 {
   id,             // crypto.randomUUID()
-  key,            // `${providerId}:${url}` — the duplicate-detection key
+  key,            // `${providerId}:${url}`, the duplicate-detection key
   url, title,
   capturedAt,     // ISO
   providerId,
@@ -37,7 +37,7 @@ One record per capture, in `chrome.storage.local` under `captures`:
   attempts,
   nextAttemptAt,  // epoch ms; null when not scheduled
   lastError,      // { code, message } or null
-  content,        // the text to send — PRESENT ONLY while pending or blocked
+  content,        // the text to send, PRESENT ONLY while pending or blocked
 }
 ```
 
@@ -46,7 +46,7 @@ only its metadata, so magpie can answer "have I already saved this?" without
 accumulating a second copy of everything you have ever read.
 
 Records are pruned to the most recent 200 `done` entries. `pending` and
-`blocked` are never pruned — they are unfinished work, not history.
+`blocked` are never pruned: they are unfinished work, not history.
 
 ## One sender
 
@@ -56,7 +56,7 @@ distill finishes. The queue collapses that split: **both paths enqueue, and a
 single drain loop in the worker sends.**
 
 The offscreen document goes back to producing summaries and nothing else. It
-cannot reach `chrome.storage`, so it messages the worker — which wakes it — and
+cannot reach `chrome.storage`, so it messages the worker, which wakes it, and
 holds the record in memory until the worker acknowledges the write. If the
 acknowledgement never comes it retries the enqueue a few times rather than
 dropping the summary on the floor.
@@ -74,7 +74,7 @@ capture ─▶ produce content ─▶ ENQUEUE ─▶ worker persists (pending) �
 ## Retry policy
 
 Backoff: **30s, 2m, 10m, 1h, 6h, then every 6h**, scheduled with
-`chrome.alarms` so it survives the service worker being killed — a timer in the
+`chrome.alarms` so it survives the service worker being killed, a timer in the
 worker would not. After roughly seven days the record becomes `blocked` and
 stops on its own; a capture retrying silently for a month is noise, not
 durability. A blocked record is still retryable by hand.
@@ -84,7 +84,7 @@ retrying at all:
 
 | Retryable | Terminal, straight to `blocked` |
 |---|---|
-| network error, timeout | 401, 403 — key rejected, or no access to the space |
+| network error, timeout | 401 or 403: key rejected, or no access to the space |
 | 5xx | 422 |
 | 429, and 402 (credits refill) | `content_too_long`, `not_configured` |
 
@@ -95,9 +95,9 @@ blocked record names what is wrong and what to do about it.
 
 A third view in the popup, reached from the header, in three groups:
 
-- **Needs you** — blocked records, with the reason and a retry.
-- **Pending** — queued, with when the next attempt is due.
-- **Recent** — landed, newest first.
+- **Needs you**: blocked records, with the reason and a retry.
+- **Pending**: queued, with when the next attempt is due.
+- **Recent**: landed, newest first.
 
 Every row offers retry, delete, and open the original page.
 
@@ -110,7 +110,7 @@ legitimate, and Supermemory already updates in place via `customId`.
 | File | Change |
 |---|---|
 | `src/lib/queue.js` | **new**, pure: backoff schedule, retryable-vs-terminal classification, dedupe key, pruning. The tested core. |
-| `src/lib/captures.js` | **new**: the `chrome.storage.local` layer — read, upsert, prune. |
+| `src/lib/captures.js` | **new**: the `chrome.storage.local` layer, read, upsert, prune. |
 | `src/background.js` | enqueue handler, drain loop, `chrome.alarms` wiring. |
 | `src/offscreen.js` | stops writing to providers; enqueues instead. |
 | `src/popup.{html,js,css}` | history view, duplicate notice on idle. |
@@ -127,11 +127,11 @@ Unit, on the pure parts:
 End to end, on what actually matters:
 
 - provider returns 500 → the record persists as `pending` with its content, is
-  retried, and lands when the provider returns 201 — then its content is gone;
+  retried, and lands when the provider returns 201, and then its content is gone;
 - provider returns 401 → `blocked` immediately, and never retried;
 - a capture survives the service worker being killed between enqueue and send.
 
 ## Out of scope
 
 Notes, tags and editing before save (piece 3). PDFs and YouTube (piece 2).
-Reading memories back from a provider — magpie still only writes.
+Reading memories back from a provider: magpie still only writes.

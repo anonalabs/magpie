@@ -1,5 +1,5 @@
 // Runs in the page, once, on demand. Injected by chrome.scripting.executeScript
-// when the user asks for a capture — never declared in the manifest, so magpie
+// when the user asks for a capture, never declared in the manifest, so magpie
 // is not resident on every page you visit.
 //
 // This file defines a function and does not call it. esbuild wraps the bundle in

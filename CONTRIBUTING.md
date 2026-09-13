@@ -19,7 +19,7 @@ drives a real Chrome, so it needs one installed at `/usr/bin/google-chrome`.
 **A test that would have failed before it.** Most of this codebase exists behind
 WebGPU, a service worker, or a browser API, so "I ran it and it worked" does not
 survive a refactor. If the thing you are fixing cannot be tested where it lives,
-that is usually a sign it wants extracting — `src/lib/engine-pool.js` exists
+that is usually a sign it wants extracting. `src/lib/engine-pool.js` exists
 because the same bug recurred three times in code that could not be reached from
 a test.
 
@@ -28,7 +28,7 @@ error that says "something went wrong" ends the conversation, and we have been
 there.
 
 **A reason in the comment, not a description of the code.** Comments here explain
-why a thing is the way it is — which failure it prevents, which assumption it
+why a thing is the way it is: which failure it prevents, which assumption it
 protects. The code already says what it does.
 
 ## Running a subset
@@ -57,7 +57,7 @@ npm run shot out.png popup.html dark 420   # look at a page of the built extensi
 One file in `src/lib/providers/`, then register it in `registry.js`. The
 manifest's host permissions are generated from `PROVIDER_ORIGINS` there, so a new
 provider cannot ship with an unreachable host. Add tests that pin the exact
-request shape — at least one provider rejects unknown fields outright.
+request shape. At least one provider rejects unknown fields outright.
 
 ## Commit messages
 

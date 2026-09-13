@@ -18,7 +18,7 @@ export const DEFAULT_SETTINGS = {
 };
 
 /**
- * API keys live in storage.local, never storage.sync — sync would replicate them
+ * API keys live in storage.local, never storage.sync, sync would replicate them
  * to the user's Google account, which is not where anyone expects to have put a
  * credential by installing a browser extension.
  */

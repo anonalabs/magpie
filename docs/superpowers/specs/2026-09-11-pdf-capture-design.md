@@ -9,8 +9,8 @@ Chrome renders PDFs in its own built-in viewer, and **content scripts cannot be
 injected into it**. Readability never gets a chance: today a PDF tab reports
 "Chrome does not allow extensions to read this page", which is true and useless.
 
-PDFs are also where distilling earns the most — a forty-page paper becomes four
-sentences — so the gap is worth closing properly rather than with an apology.
+PDFs are also where distilling earns the most: a forty-page paper becomes four
+sentences, so the gap is worth closing properly rather than with an apology.
 
 ## Approach
 
@@ -20,8 +20,8 @@ already has a DOM and already owns long jobs.
 - **Detection.** A tab whose URL looks like a PDF skips injection entirely rather
   than failing first. Anything else that fails injection has its content type
   checked before being called unreadable.
-- **Parsing.** `pdf.js`, with its worker bundled as a static file — a `data:` URI
-  worker is refused under MV3's CSP, a bundled one is not — and
+- **Parsing.** `pdf.js`, with its worker bundled as a static file: a `data:` URI
+  worker is refused under MV3's CSP, a bundled one is not, and
   `isEvalSupported: false`.
 - **Page breaks become blank lines**, so the existing chunker's paragraph
   boundaries keep working and a chunk does not start mid-sentence across a page.
@@ -39,14 +39,14 @@ Past the cap magpie reads the first forty pages and records it **in the content*
 
 Not only in metadata. Memory layers extract from content and largely ignore
 metadata, so a caveat stored there would be invisible at exactly the moment it
-matters — when a summary of chapter one is recalled as though it were the book.
+matters, when a summary of chapter one is recalled as though it were the book.
 `pages_read` and `pages_total` ride in metadata as well, for provenance.
 
 ## What it will not read, and what it says
 
 | Case | Why | Message |
 |---|---|---|
-| Scanned or image-only | no text layer; this needs OCR | "This PDF has no text in it — it looks scanned." |
+| Scanned or image-only | no text layer; this needs OCR | "This PDF has no text in it. It looks scanned." |
 | `file://` | needs *Allow access to file URLs*, a separate toggle | names the toggle and where to find it |
 | Password-protected | pdf.js cannot open it | says so |
 
@@ -77,5 +77,5 @@ document is truncated with the notice present.
 OCR for scanned PDFs. YouTube transcripts, which were considered alongside this
 and rejected for now: there is no public transcript API, and the workable route
 reads YouTube's internal player JSON out of the page and fetches an undocumented
-caption URL — it works until YouTube changes shape, and there is no version of it
+caption URL: it works until YouTube changes shape, and there is no version of it
 that does not.

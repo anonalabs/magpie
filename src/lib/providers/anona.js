@@ -1,4 +1,4 @@
-// Anona Memory — https://api.anonalabs.com
+// Anona Memory: https://api.anonalabs.com
 
 import { captureMetadata } from '../compose.js';
 
@@ -21,8 +21,8 @@ export const anona = {
       required: true,
       default: 'default',
       loadLabel: 'Load spaces',
-      // Typing a space id is legitimate — a record write creates the space if it
-      // does not exist — but it also means a typo silently becomes a new, empty
+      // Typing a space id is legitimate (a record write creates the space if it
+      // does not exist), but it also means a typo silently becomes a new, empty
       // space that looks like the real one. Listing the real ones makes the
       // common case a choice instead of a spelling test.
       async loadOptions(config) {
@@ -50,7 +50,7 @@ export const anona = {
           ok: true,
           options: (payload?.spaces ?? []).map((space) => ({
             // qualified_id is set only when another org shared this space, and
-            // addressing by it is always safe — where the caller also owns a
+            // addressing by it is always safe, where the caller also owns a
             // space of the same name, the bare form is refused as ambiguous.
             value: space.qualified_id ?? space.space_id,
             label: space.name || space.space_id,
@@ -70,7 +70,7 @@ export const anona = {
       },
       // Anona's data-plane models are extra="forbid": an unrecognised key is a
       // 422, not a silent drop. So this object is exactly the documented fields
-      // and nothing else — note "async", which is the alias, not the Python-side
+      // and nothing else. Note "async", which is the alias, not the Python-side
       // field name "async_".
       body: {
         space_id: config.spaceId || 'default',
@@ -94,7 +94,7 @@ export const anona = {
         state: payload?.memory_id ? 'stored' : 'queued',
       };
     }
-    // Anona's envelope is {"error": {"code", "message"}} — not FastAPI's "detail".
+    // Anona's envelope is {"error": {"code", "message"}}, not FastAPI's "detail".
     const err = payload?.error;
     return { ok: false, code: err?.code ?? `http_${status}`, message: err?.message ?? describeStatus(status) };
   },

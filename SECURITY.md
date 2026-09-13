@@ -41,5 +41,5 @@ magpie server, no telemetry and no analytics.
 In scope: anything that leaks a key or page content, escalates the extension's
 permissions, or executes code from outside the package.
 
-Out of scope: vulnerabilities in the memory layers themselves — report those to
-their maintainers — and anything requiring physical access to an unlocked machine.
+Out of scope: vulnerabilities in the memory layers themselves (report those to
+their maintainers) and anything requiring physical access to an unlocked machine.

@@ -5,7 +5,7 @@ built in `2026-09-11-durable-capture-design.md`.
 
 ## The problem
 
-The model can say what a page contains. It cannot say why you kept it — and that
+The model can say what a page contains. It cannot say why you kept it, and that
 is usually the part worth recalling. There is also no way to keep a passage you
 highlighted rather than the page it sat in.
 
@@ -18,10 +18,10 @@ every capture, which is the friction the design deliberately removed.
 
 So annotating is **a second gesture**, not a step added to the first.
 
-- `Alt+Shift+M` — unchanged. Instant, no prompt.
-- `Alt+Shift+N` — compose: note, edit, then save.
-- Right-click the in-page button — compose.
-- Right-click a selection — *Remember this selection*.
+- `Alt+Shift+M`: unchanged. Instant, no prompt.
+- `Alt+Shift+N`: compose. Note, edit, then save.
+- Right-click the in-page button: compose.
+- Right-click a selection: *Remember this selection*.
 
 ## Compose costs no waiting
 
@@ -47,7 +47,7 @@ the summary
 ```
 
 Not into `metadata`. Memory layers extract from content and largely ignore
-metadata, so a note stored there would be kept and never found — worse than not
+metadata, so a note stored there would be kept and never found; worse than not
 offering one, because it would look like it worked. `metadata.note` is mirrored
 for provenance only.
 
@@ -68,8 +68,8 @@ useless.
 
 Two fields added to the capture record from piece 1:
 
-- `note` — the text the reader wrote, or absent.
-- `sourceKind` — `'page' | 'selection'`.
+- `note`: the text the reader wrote, or absent.
+- `sourceKind`: `'page' | 'selection'`.
 
 Both ride into `metadata`. `mode` records what actually produced the content
 (`distill`, `raw`, `selection`).
@@ -111,5 +111,5 @@ Chrome's `selectionText` truncation arrives whole.
 
 ## Out of scope
 
-Tags — three provider mappings and one of them barely works. Editing a memory
+Tags: three provider mappings and one of them barely works. Editing a memory
 after it has been written. PDFs and YouTube, which are piece 3 of 3.

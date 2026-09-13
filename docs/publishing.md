@@ -13,7 +13,7 @@ Upload at <https://chrome.google.com/webstore/devconsole>.
 ## What it costs
 
 A **one-time $5 developer registration fee**, per Google account. Nothing after
-that. Use an account the team will still control in two years — a listing cannot
+that. Use an account the team will still control in two years: a listing cannot
 be moved between accounts, only transferred with support's help.
 
 ## What the listing needs that the code does not have
@@ -61,7 +61,7 @@ You will be asked to tick what the extension collects. The honest answers:
 
 - **The optional all-sites permission.** Anything that can run on every page gets
   a closer look. It being *optional* and requested in-context is the strongest
-  thing in magpie's favour — do not move it into `host_permissions` for
+  thing in magpie's favour; do not move it into `host_permissions` for
   convenience.
 - **Remotely-hosted code.** There is none, and `npm run check:remote` keeps it
   that way. If it ever creeps back, the rejection is automatic and the appeal is

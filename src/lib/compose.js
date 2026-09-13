@@ -9,7 +9,7 @@ export const NOTE_SEPARATOR = '\n\n---\n\n';
 
 /**
  * The note comes first. It is the part a reader wrote and the part they will
- * search for — a memory layer that truncates or weights by position should see
+ * search for; a memory layer that truncates or weights by position should see
  * it before the machine-written half.
  */
 export function composeContent(note, body) {
@@ -23,7 +23,7 @@ export function composeContent(note, body) {
 /**
  * One metadata shape for every provider, rather than three that drift.
  *
- * The note is mirrored here for provenance, never stored here *instead* —
+ * The note is mirrored here for provenance, never stored here *instead*,
  * memory layers extract from content and largely ignore metadata, so a note that
  * lived only here would be kept and never found, which is worse than not
  * offering one because it looks like it worked.

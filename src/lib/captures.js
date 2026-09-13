@@ -1,7 +1,7 @@
 // The store behind the queue: chrome.storage.local, one array under `captures`.
 //
 // Every mutation is a read-modify-write, and two of them interleaving would lose
-// one of the writes — which is precisely the failure this whole piece exists to
+// one of the writes, which is precisely the failure this whole piece exists to
 // prevent. So they are serialised through one chain.
 
 import { prune, captureKey } from './queue.js';

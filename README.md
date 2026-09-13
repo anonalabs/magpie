@@ -1,7 +1,7 @@
 <h1 align="center">magpie</h1>
 
 <p align="center">
-  Remember any page into your memory layer — summarised on your own GPU.<br>
+  Remember any page into your memory layer, summarised on your own GPU.<br>
   The page text never leaves your machine.
 </p>
 
@@ -90,7 +90,7 @@ Authorization: Bearer anona_live_…
 ```
 
 No telemetry, no analytics, and no magpie server. API keys live in
-`chrome.storage.local` — deliberately not `chrome.storage.sync`, which would
+`chrome.storage.local`, deliberately not `chrome.storage.sync`, which would
 replicate them to your Google account.
 
 ## Usage
@@ -101,7 +101,7 @@ replicate them to your Google account.
 | <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd> | Remember it with a note. Compose starts the summary as it opens, so you write while the model runs. |
 | Right-click a selection | Remember that passage, verbatim. No model. |
 | Toolbar button | The same as the shortcut, plus history and settings. |
-| In-page button | Optional, off by default — see [permissions](#permissions). |
+| In-page button | Optional, off by default. See [permissions](#permissions). |
 
 **History** groups captures as *Needs you*, *Waiting to send* and *Remembered*, each
 row with retry, delete and the reason it failed.
@@ -142,12 +142,12 @@ service worker ──── is it a PDF? ──▶ offscreen: fetch and parse wi
 
 **The offscreen document owns the job, not the service worker.** A worker dies
 after 30s idle and is capped at 5 minutes per event; a long article exceeds both.
-Measured before anything was built — see [`spikes/phase0`](spikes/phase0).
+Measured before anything was built. See [`spikes/phase0`](spikes/phase0).
 
 **Nothing is lost.** A capture is written to disk *before* any network call, so an
 unreachable provider or an expired key is a retry rather than lost work. Retries
 back off 30s → 2m → 10m → 1h → 6h, scheduled with `chrome.alarms` so they outlive
-the worker. Failures that will never succeed — a rejected key, a refused body —
+the worker. Failures that will never succeed (a rejected key, a refused body)
 stop immediately and land in *Needs you* with the reason. A landed capture drops
 its content and keeps only metadata.
 
@@ -164,12 +164,12 @@ resolves the engine when it *runs*, never when it was queued.
 
 **Chunking is measured in tokens, not characters.** A flat `length ÷ 4` runs 43%
 low on code and 54% low on URL-dense text, and under-counting overfills the context
-window — which returns an *empty summary* rather than an error. Nothing depends on
+window, which returns an *empty summary* rather than an error. Nothing depends on
 the estimate being right either: an empty answer is retried on half the input.
 
 **The model libraries ship inside the extension.** WebLLM fetches its compiled
 `.wasm` kernels from a CDN by default, and Chrome counts a remotely-fetched `.wasm`
-as remotely-hosted code — a flat Web Store rejection. `npm run check:remote` fails
+as remotely-hosted code, a flat Web Store rejection. `npm run check:remote` fails
 the build if a CDN code URL reappears.
 </details>
 
@@ -178,12 +178,12 @@ the build if a CDN code URL reappears.
 **Articles**, via Mozilla's Readability, parsed from a clone so the page you are
 looking at is not rearranged.
 
-**PDFs**, which Chrome renders in a viewer no content script can enter — magpie
+**PDFs**, which Chrome renders in a viewer no content script can enter, so magpie
 fetches and parses the file itself, up to **40 pages**, and says so *in the content*
 when it stops there. Scanned PDFs need OCR and are refused with that reason;
 `file://` PDFs need *Allow access to file URLs*.
 
-**Selections**, stored exactly as selected — no model, instant, works without
+**Selections**, stored exactly as selected: no model, instant, works without
 WebGPU. The full selection is read from the page rather than from the context-menu
 event, because Chrome truncates the copy it puts there.
 
@@ -196,7 +196,7 @@ event, because Chrome truncates the copy it puts there.
 | Llama 3.2 3B | 2,264 MB | 4,096 | best summaries |
 
 Weights download once and are cached. A GPU that keeps faulting is almost always
-short of memory, and retrying does not reduce memory pressure — so the recovery
+short of memory, and retrying does not reduce memory pressure, so the recovery
 offers the next model down and says how much it saves.
 
 ## Adding a memory layer
@@ -209,7 +209,7 @@ provider cannot ship with an unreachable host.
 A field may also declare `loadOptions(config)` and the popup turns it into a picker.
 Anona lists spaces; Mem0 lists users, filtered to `type === "user"` because the
 endpoint named "get users" returns agents and runs too. Supermemory has none
-deliberately — nothing enumerates container tags, since a tag starts existing when
+deliberately: nothing enumerates container tags, since a tag starts existing when
 it is used.
 
 Report honestly: if the API accepts a write for asynchronous processing, return
@@ -244,11 +244,11 @@ Design notes for each piece are kept in
 
 | Symptom | Cause |
 |---|---|
-| A permission cannot be granted | Chrome caches the manifest — reload the extension, not just the build. |
+| A permission cannot be granted | Chrome caches the manifest. Reload the extension, not just the build. |
 | The shortcut does nothing | Check `chrome://extensions/shortcuts`. Chrome silently declines a key it has reserved. |
 | `gpu_fault` twice in a row | Real GPU memory pressure. Switch to a smaller model. |
 | Nothing to remember on this page | The page is not an article. Readability found only boilerplate. |
-| A capture is stuck in *Needs you* | A terminal failure — the row names it. Fix and retry. |
+| A capture is stuck in *Needs you* | A terminal failure; the row names it. Fix and retry. |
 
 ## Contributing
 

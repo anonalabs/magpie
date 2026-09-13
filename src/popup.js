@@ -1,5 +1,5 @@
 // The popup is a viewer. It can start a capture, but nothing depends on it
-// staying open — closing it mid-job is normal, and reopening reattaches.
+// staying open, closing it mid-job is normal, and reopening reattaches.
 
 import { MSG, toBackground } from './lib/messages.js';
 import { loadSettings, saveSettings, providerConfig } from './lib/settings.js';
@@ -33,7 +33,7 @@ function renderJob(job) {
 
   // A failure thrown anywhere in the worker comes back as {ok:false, code,
   // message} with no `state` at all. Without this it fell through to the error
-  // branch, which reads job.result — undefined — and printed "Something went
+  // branch, which reads job.result, undefined, and printed "Something went
   // wrong" while holding the actual reason in its hand.
   if (job.ok === false && !job.state) job = { state: 'error', tabId, result: job };
 
@@ -120,7 +120,7 @@ let lastError = null;
 function describeFailure(job, result) {
   if (result.message) return result.code ? `${result.message} (${result.code})` : result.message;
   if (result.code) return `Something went wrong (${result.code}).`;
-  // Nothing named a cause. Name the shape instead — it is what tells us which
+  // Nothing named a cause. Name the shape instead: it is what tells us which
   // path produced it.
   return `Something went wrong, and nothing said what (state: ${job.state ?? 'none'}). `
     + 'Press Copy details.';
@@ -138,7 +138,7 @@ const RECOVERIES = {
   webgpu_unavailable: { label: 'Send this page as text', run: () => start('raw') },
   raw: { label: 'Send this page as text', run: () => start('raw') },
   distill: { label: 'Summarise it on this device', run: () => start('distill') },
-  // The model size is not a per-capture thing; it is which model gets loaded —
+  // The model size is not a per-capture thing; it is which model gets loaded,
   // and the engine names which one is actually smaller than the one that failed.
   smaller_model: {
     label: 'Use a smaller model',
@@ -229,7 +229,7 @@ function fillBodyLabel(mode, ready) {
   const body = $('compose-body');
   $('compose-body-label').textContent = mode === 'raw' ? 'Page text' : 'Summary';
   body.disabled = !ready;
-  body.placeholder = ready ? '' : 'The model is writing it — keep typing your note.';
+  body.placeholder = ready ? '' : 'The model is writing it. Keep typing your note.';
   $('compose-body-note').textContent = ready
     ? 'Edit it if you like. Your note is saved above it.'
     : 'Writing the summary on this device…';
@@ -387,14 +387,14 @@ function buildControl(provider, field, value) {
   const known = options.some((o) => o.value === value);
 
   for (const option of options) {
-    select.append(new Option(option.note ? `${option.label} — ${option.note}` : option.label,
+    select.append(new Option(option.note ? `${option.label} (${option.note})` : option.label,
       option.value, false, option.value === value));
   }
 
   // A value that is saved but not in the list still has to be selectable, or
   // opening settings and pressing Save would quietly replace it with nothing.
   // It is a real setting: the space is created by the first write.
-  if (!known && value) select.append(new Option(`${value} — will be created`, value, false, true));
+  if (!known && value) select.append(new Option(`${value} (will be created)`, value, false, true));
 
   // And a name that does not exist yet must stay typeable, or the list becomes a
   // cage around an API that is happy to create one.
@@ -426,7 +426,7 @@ async function loadOptions(provider, field, button, { quiet = false } = {}) {
 
   if (!result.ok) {
     // A failed automatic attempt leaves the text box it was trying to improve,
-    // and the button is still there to retry deliberately — so it stays quiet.
+    // and the button is still there to retry deliberately, so it stays quiet.
     // A failure that was actually asked for is reported.
     if (note && !quiet) { note.textContent = result.message; note.classList.add('bad'); }
     return result;
@@ -441,7 +441,7 @@ async function loadOptions(provider, field, button, { quiet = false } = {}) {
     note.classList.remove('bad');
     note.textContent = result.options.length
       ? `${result.options.length} space${result.options.length === 1 ? '' : 's'}.`
-      : 'No spaces yet — type a name and it is created the first time you remember something.';
+      : 'No spaces yet. Type a name and it is created the first time you remember something.';
   }
   return result;
 }
@@ -518,7 +518,7 @@ async function save() {
   renderIdle();
 
   if (!missing.length) {
-    // Nothing left to fill in, so the task is finished — returning to the page
+    // Nothing left to fill in, so the task is finished, returning to the page
     // is the answer, and the header now naming the destination is the receipt.
     $('save-note').textContent = '';
     return openSettings(false);
@@ -529,7 +529,7 @@ async function save() {
 // --------------------------------------------------------- in-page button ---
 // Behind an optional permission. A button on every page means a content script
 // on every page, which reads at install time as "read and change all your data
-// on all websites" — not a thing to take by default from people who installed
+// on all websites", not a thing to take by default from people who installed
 // this because it keeps their reading on their own machine.
 const ALL_SITES = { origins: ['http://*/*', 'https://*/*'] };
 
@@ -558,7 +558,7 @@ async function renderInPageToggle() {
 
 async function toggleInPage(event) {
   // Turning it ON cannot happen here. Chrome closes the popup to show the
-  // permission prompt, which destroys this page mid-await — the checkbox ticks,
+  // permission prompt, which destroys this page mid-await, the checkbox ticks,
   // the window vanishes, and nothing is granted. A normal tab survives the
   // prompt, so the ask happens there.
   if (event.target.checked) {
@@ -710,7 +710,7 @@ function showAlreadyRemembered(records) {
   if (landed) $('already').textContent = `You remembered this ${ago(landed.capturedAt)}.`;
 }
 
-// The shortcut is the primary way in, so the popup shows the one really bound —
+// The shortcut is the primary way in, so the popup shows the one really bound,
 // Chrome silently declines a suggested key it has already reserved.
 async function renderShortcut() {
   const commands = await chrome.commands.getAll();
@@ -723,7 +723,7 @@ async function renderShortcut() {
 // -------------------------------------------------------------------- boot --
 (async function boot() {
   // Wired first, before a single await. boot() makes several round trips, and a
-  // click that lands in that window must not be swallowed — pressing the gear
+  // click that lands in that window must not be swallowed, pressing the gear
   // the instant the popup opens is exactly when it is most likely to happen.
   // Bare `start` would receive the click event as its mode argument.
   $('remember').onclick = () => start();
