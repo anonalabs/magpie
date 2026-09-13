@@ -186,13 +186,13 @@
   .beak { fill: var(--red); }
   .eye { fill: var(--paper); }
   .wing { fill: var(--ink); }
-  .payload { fill: var(--red); }
+  .carried { fill: var(--red); }
   .pluck { fill: var(--red); opacity: 0; }
 
   /* The carrier travels in viewBox units, so its origin is the viewBox. */
   .carrier { transform-box: view-box; transform-origin: 0 0; }
   /* Everything else turns about its own middle. */
-  .payload { transform-box: fill-box; transform-origin: left center; }
+  .carried { transform-box: fill-box; transform-origin: left center; }
   .wing, .chip-scan, .pluck, .shelf.landed { transform-box: fill-box; transform-origin: center; }
 
   /* ── the flight ───────────────────────────────────────────────────────────
@@ -231,8 +231,10 @@
     23%, 100% { opacity: 0; transform: translate(8px, -12px) scaleX(.8); }
   }
 
-  /* What it carries: full length off the page, short after the machine. */
-  .payload { animation: condense 9s cubic-bezier(.45, .05, .35, 1) infinite; }
+  /* What it carries: full length off the page, short after the machine.
+     Named .carried and not .payload: the comparison panels below own that name,
+     and this animation was silently squashing them to 26% of their width. */
+  .carried { animation: condense 9s cubic-bezier(.45, .05, .35, 1) infinite; }
   @keyframes condense {
     0%, 12%   { opacity: 0; transform: scaleX(1); }
     19%, 38%  { opacity: 1; transform: scaleX(1); }
@@ -284,11 +286,11 @@
      bird is over the machine, what it carries is already short, and the shelf
      already holds the memory. */
   @media (prefers-reduced-motion: reduce) {
-    .carrier, .payload, .page-lines .line, .chip, .chip-scan, .shelf.landed, .wing, .pluck {
+    .carrier, .carried, .page-lines .line, .chip, .chip-scan, .shelf.landed, .wing, .pluck {
       animation: none;
     }
     .carrier { transform: translate(165px, 40px); }
-    .payload { transform: scaleX(.26); opacity: 1; }
+    .carried { transform: scaleX(.26); opacity: 1; }
     .shelf.landed { opacity: 1; fill: var(--red); }
     .chip { opacity: 1; }
     .page-lines .line { opacity: .2; }
@@ -335,11 +337,23 @@
     background: var(--paper); border: 1px solid var(--line); border-radius: 7px;
     padding: 11px; color: var(--ink);
   }
-  .payload.is-clipped { max-height: 7.5rem; overflow: hidden; position: relative; color: var(--muted); }
-  .payload.is-clipped::after {
-    content: ""; position: absolute; inset: auto 0 0 0; height: 3.5rem;
-    background: linear-gradient(to bottom, transparent, var(--paper));
+  .leaf-note { font-size: .8125rem; color: var(--muted); }
+  .leaf-note b { color: var(--red-text); font-family: var(--mono); font-weight: 500; }
+
+  /* One square per summary's worth of the same article. */
+  .units {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 7px);
+    gap: 3px;
+    justify-content: space-between;
+    align-content: start;
+    padding: 12px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 7px;
   }
+  .units i { display: block; width: 7px; height: 7px; border-radius: 1.5px; background: var(--line-strong); }
+  .units i.is-summary { background: var(--red); }
 
   /* ── steps ──────────────────────────────────────────────────────────────── */
   .steps { display: grid; counter-reset: step; }
@@ -538,12 +552,290 @@
       <div class="leaf is-default">
         <div class="leaf-head"><span class="leaf-name">Summary</span><span class="leaf-size">345 characters</span></div>
         <div class="payload">The chapter compares storage engines built on log-structured merge trees against those built on B-trees. LSM-trees write sequentially and compact in the background, giving higher write throughput; B-trees update pages in place, giving more predictable read latency.</div>
+        <p class="leaf-note">All of it. That is the whole thing that gets sent.</p>
       </div>
+
       <div class="leaf">
         <div class="leaf-head"><span class="leaf-name">Page text</span><span class="leaf-size">93,288 characters</span></div>
-        <div class="payload is-clipped">Storage and Retrieval. On the most fundamental level, a database needs to do two things: when you give it some data, it should store the data, and when you ask it again later, it should give the data back to you. In Chapter 2 we discussed data models and query languages — the format in which you give the database your data, and the mechanism by which you can ask for it again later. In this chapter we discuss the same from the database's point of view…</div>
+        <!-- 270 squares, one per summary's worth of the same article. The ratio
+             is 93,288 ÷ 345, so this is the comparison at true scale rather
+             than a figure of speech. -->
+        <div class="units" role="img" aria-label="270 squares, one of them red: sending the page text sends 270 times the content of the summary.">
+          <i class="is-summary"></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+          <i></i>
+        </div>
+        <p class="leaf-note"><b>270×</b> the summary — one square each.</p>
       </div>
     </div>
+
     <p class="note">Summary is the default. Page text is opt-in — and providers bill on what they extract.</p>
   </section>
 
