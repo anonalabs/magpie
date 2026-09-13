@@ -89,13 +89,21 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  .wrap { max-width: 56rem; margin: 0 auto; padding-inline: 24px; }
+  /* A page, not a column. 56rem is a reading measure and was being applied to
+     the whole site, so on anything wider than a laptop it read as a card
+     floating in the middle. Running text is still held to a measure where it
+     matters — the lede and section intros set their own. */
+  .wrap { max-width: 78rem; margin: 0 auto; padding-inline: clamp(24px, 4vw, 56px); }
+
+  /* Rules run the full width of the window rather than stopping at the content.
+     That is what makes a centred column read as a page instead of a panel. */
+  .bleed { border-top: 1px solid var(--line); }
 
   a { color: var(--red-text); text-underline-offset: 2px; }
   a:focus-visible, button:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; border-radius: 3px; }
 
   h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance; }
-  h1 { font-size: clamp(2.75rem, 6.4vw, 4.75rem); line-height: .98; letter-spacing: -.025em; }
+  h1 { font-size: clamp(2.75rem, 5.6vw, 5.5rem); line-height: .98; letter-spacing: -.025em; }
   h2 { font-size: clamp(1.75rem, 3.2vw, 2.5rem); line-height: 1.04; letter-spacing: -.02em; }
   p { margin: 0; }
 
@@ -107,8 +115,9 @@
   /* ── masthead ───────────────────────────────────────────────────────────── */
   .masthead {
     display: flex; align-items: center; justify-content: space-between; gap: 16px;
-    padding-block: 20px; border-bottom: 1px solid var(--line);
+    padding-block: 20px;
   }
+  .masthead-bleed { border-bottom: 1px solid var(--line); }
   .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; }
   .brand svg { width: 21px; height: 21px; border-radius: 5px; }
   .masthead-right { display: flex; align-items: center; gap: 16px; font-size: .875rem; }
@@ -132,10 +141,11 @@
 
   /* ── hero ───────────────────────────────────────────────────────────────── */
   .hero {
-    display: grid; grid-template-columns: 1fr 24rem; gap: 44px; align-items: center;
-    padding-block: clamp(44px, 7vw, 84px);
+    display: grid; grid-template-columns: minmax(0, 1fr) clamp(20rem, 34vw, 30rem);
+    gap: clamp(36px, 5vw, 72px); align-items: center;
+    padding-block: clamp(48px, 7vw, 96px);
   }
-  @media (max-width: 54rem) { .hero { grid-template-columns: 1fr; gap: 36px; } }
+  @media (max-width: 60rem) { .hero { grid-template-columns: 1fr; gap: 36px; } }
 
   .hero .lede { font-size: 1.0625rem; line-height: 1.55; color: var(--muted); margin-top: 18px; max-width: 26rem; }
   .actions { display: flex; gap: 10px; margin-top: 26px; flex-wrap: wrap; }
@@ -297,12 +307,12 @@
   }
 
   /* ── destinations ───────────────────────────────────────────────────────── */
-  section { padding-block: clamp(40px, 6vw, 68px); border-top: 1px solid var(--line); }
+  section { padding-block: clamp(44px, 6vw, 76px); }
   .section-head { display: grid; gap: 10px; margin-bottom: 28px; }
   .section-head p { color: var(--muted); max-width: 34rem; }
 
   .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  @media (max-width: 48rem) { .row3 { grid-template-columns: 1fr; } }
+  @media (max-width: 56rem) { .row3 { grid-template-columns: 1fr; } }
 
   .dest {
     display: grid; gap: 6px; padding: 18px;
@@ -325,7 +335,7 @@
   /* Stretch, not start: two panels comparing the same article should be the
      same object twice, and a short one next to a tall one reads as two. */
   .leaves { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 48rem) { .leaves { grid-template-columns: 1fr; } }
+  @media (max-width: 56rem) { .leaves { grid-template-columns: 1fr; } }
   .leaf {
     background: var(--sheet); border: 1px solid var(--line); border-radius: 10px;
     padding: 18px; display: grid; gap: 10px;
@@ -390,14 +400,14 @@
   td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
   footer {
-    border-top: 1px solid var(--line); padding-block: 32px 48px;
+    padding-block: 32px 48px;
     display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
     font-size: .8125rem; color: var(--faint);
   }
   footer a { color: var(--muted); }
 </style>
 
-<div class="wrap">
+<div class="masthead-bleed"><div class="wrap">
   <header class="masthead">
     <span class="brand">
       <svg viewBox="0 0 32 32" aria-hidden="true">
@@ -424,7 +434,9 @@
       </button>
     </span>
   </header>
+</div></div>
 
+<div class="wrap">
   <div class="hero">
     <div>
       <h1>Remember any page,<br>without handing it over.</h1>
@@ -498,7 +510,9 @@
       <figcaption id="demo-caption">Taken from the page, condensed here, carried to memory.</figcaption>
     </figure>
   </div>
+</div>
 
+<div class="bleed"><div class="wrap">
   <section>
     <div class="section-head">
       <span class="eyebrow">Works with</span>
@@ -547,7 +561,9 @@
     </div>
     <p class="note">Adding another is one file. No telemetry, and no magpie server — your key goes straight from the browser to whichever you chose.</p>
   </section>
+</div></div>
 
+<div class="bleed"><div class="wrap">
   <section>
     <div class="section-head">
       <span class="eyebrow">What is sent</span>
@@ -843,7 +859,9 @@
 
     <p class="note">Summary is the default. Page text is opt-in — and providers bill on what they extract.</p>
   </section>
+</div></div>
 
+<div class="bleed"><div class="wrap">
   <section id="install">
     <div class="section-head">
       <span class="eyebrow">Install</span>
@@ -869,7 +887,9 @@
       </div></div>
     </div>
   </section>
+</div></div>
 
+<div class="bleed"><div class="wrap">
   <section>
     <div class="section-head">
       <span class="eyebrow">Models</span>
@@ -887,7 +907,9 @@
     </div>
     <p class="note">Also reads PDFs, and keeps a highlighted passage exactly as you selected it.</p>
   </section>
+</div></div>
 
+<div class="bleed"><div class="wrap">
   <footer>
     <span>MIT. Bundles Mozilla's Readability and pdf.js.</span>
     <span>
@@ -896,7 +918,7 @@
       <a href="https://anonalabs.com">Anona Labs</a>
     </span>
   </footer>
-</div>
+</div></div>
 
 <script>
   // The one line to change once the Web Store listing is live. Until it exists,
