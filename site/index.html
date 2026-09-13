@@ -1,0 +1,470 @@
+<title>magpie</title>
+<meta name="description" content="Remember any page into your memory layer, distilled on your own machine.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  /* anonalabs/website's world: folded sheets of white paper, warm ink, one red. */
+  :root {
+    --paper: #ffffff;
+    --sheet: #f7f6f4;
+    --sheet-2: #eeece8;
+    --ink: #1a1816;
+    --muted: #5d5853;
+    --faint: #6f6a64;
+    --line: #e6e3df;
+    --line-strong: #cfcac4;
+
+    --red: #e7413c;
+    --red-btn: #ce3430;
+    --red-btn-hover: #b02324;
+    --red-text: #b02324;
+    --red-tint: #fbecea;
+    --on-red: #ffffff;
+    --green: #1f9d55;
+
+    --code-bg: #1a1d21;
+    --code-panel: #22262b;
+    --code-ink: #e6e8eb;
+    --code-muted: #9aa0a8;
+    --code-string: #e8c98a;
+    --code-key: #ff7a72;
+
+    --display: "Instrument Serif", Georgia, "Times New Roman", serif;
+    --body: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --measure: 34rem;
+  }
+
+  /* The site is white paper and commits to it — the same single world the
+     product's own site keeps. Colors are still painted explicitly, so the page
+     holds on either host ground. */
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding-block: 0 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 1rem/1.55 var(--body);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 58rem;
+    margin: 0 auto;
+    padding-inline: 24px;
+  }
+
+  a { color: var(--red-text); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
+
+  h1, h2, h3 {
+    font-family: var(--display);
+    font-weight: 400;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h1 { font-size: clamp(3rem, 7.4vw, 6rem); line-height: .98; letter-spacing: -.025em; }
+  h2 { font-size: clamp(2.125rem, 4.2vw, 3.25rem); line-height: 1.02; letter-spacing: -.02em; }
+  h3 { font-size: clamp(1.35rem, 2vw, 1.6rem); line-height: 1.1; letter-spacing: -.02em; }
+  p { margin: 0; max-width: var(--measure); }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .75rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  /* ── masthead ───────────────────────────────────────────────────────────── */
+  .masthead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-block: 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: .01em; }
+  .brand svg { width: 22px; height: 22px; border-radius: 5px; }
+  .masthead nav { display: flex; gap: 18px; font-size: .875rem; }
+  .masthead nav a { color: var(--muted); text-decoration: none; }
+  .masthead nav a:hover { color: var(--ink); }
+
+  /* ── hero ───────────────────────────────────────────────────────────────── */
+  .hero { padding-block: clamp(56px, 9vw, 104px) clamp(40px, 6vw, 72px); }
+  .hero h1 { margin-bottom: 20px; }
+  .hero .lede { font-size: 1.125rem; line-height: 1.6; color: var(--muted); max-width: 30rem; }
+
+  .keys { display: flex; align-items: center; gap: 8px; margin-top: 28px; flex-wrap: wrap; }
+  kbd {
+    font-family: var(--mono);
+    font-size: .8125rem;
+    padding: 5px 9px;
+    background: var(--sheet);
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+  }
+  .keys span { color: var(--faint); font-size: .875rem; }
+
+  .actions { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    font: 600 .875rem/1 var(--body);
+    border-radius: 7px;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .btn-primary { background: var(--red-btn); color: var(--on-red); }
+  .btn-primary:hover { background: var(--red-btn-hover); }
+  .btn-ghost { background: var(--paper); color: var(--ink); border-color: var(--line-strong); }
+  .btn-ghost:hover { border-color: var(--ink); }
+
+  .note { margin-top: 14px; font-size: .8125rem; color: var(--faint); }
+
+  /* ── sections ───────────────────────────────────────────────────────────── */
+  section { padding-block: clamp(48px, 7vw, 80px); border-top: 1px solid var(--line); }
+  .section-head { display: grid; gap: 14px; margin-bottom: 36px; }
+
+  /* ── the comparison: one sheet complete, one visibly cut ────────────────── */
+  .leaves { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 46rem) { .leaves { grid-template-columns: 1fr; } }
+
+  .leaf {
+    background: var(--sheet);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    display: grid;
+    gap: 12px;
+  }
+  .leaf.is-default { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-tint); }
+  .leaf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .leaf-name { font-weight: 600; font-size: .9375rem; }
+  .leaf-size { font-family: var(--mono); font-size: .75rem; color: var(--red-text); font-variant-numeric: tabular-nums; }
+  .leaf p { font-size: .875rem; color: var(--muted); max-width: none; }
+
+  .payload {
+    font-family: var(--mono);
+    font-size: .75rem;
+    line-height: 1.6;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 12px;
+    color: var(--ink);
+  }
+  /* The clipped one is clipped on purpose: it is 93,288 characters, and the
+     fade is the honest way to show that at this size. */
+  .payload.is-clipped {
+    max-height: 9.5rem;
+    overflow: hidden;
+    position: relative;
+    color: var(--muted);
+  }
+  .payload.is-clipped::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 4.5rem;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), var(--paper));
+  }
+
+  .ratio {
+    margin-top: 22px;
+    font-size: .875rem;
+    color: var(--muted);
+    max-width: var(--measure);
+  }
+  .ratio b { font-family: var(--mono); color: var(--red-text); font-weight: 500; }
+
+  /* ── code ───────────────────────────────────────────────────────────────── */
+  .code {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border-radius: 10px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: .8125rem;
+    line-height: 1.7;
+    margin-top: 24px;
+  }
+  .code .k { color: var(--code-key); }
+  .code .s { color: var(--code-string); }
+  .code .c { color: var(--code-muted); }
+  .code pre { margin: 0; }
+
+  /* ── steps: a real sequence, so numbered ────────────────────────────────── */
+  .steps { display: grid; gap: 2px; counter-reset: step; margin-top: 8px; }
+  .step {
+    display: grid;
+    grid-template-columns: 2.25rem 1fr;
+    gap: 14px;
+    align-items: start;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .step:last-child { border-bottom: 0; }
+  .step::before {
+    counter-increment: step;
+    content: counter(step);
+    font-family: var(--mono);
+    font-size: .8125rem;
+    color: var(--red-text);
+    padding-top: 2px;
+  }
+  .step h3 { font-family: var(--body); font-size: .9375rem; font-weight: 600; letter-spacing: 0; }
+  .step p { font-size: .875rem; color: var(--muted); margin-top: 4px; }
+  .step code, .inline-code {
+    font-family: var(--mono);
+    font-size: .8125rem;
+    background: var(--sheet-2);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* ── reads / models: repeated objects, one shape ────────────────────────── */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  @media (max-width: 52rem) { .grid { grid-template-columns: 1fr; } }
+  .item { display: grid; gap: 8px; padding-top: 18px; border-top: 2px solid var(--ink); }
+  .item h3 { font-family: var(--body); font-size: .9375rem; font-weight: 600; letter-spacing: 0; }
+  .item p { font-size: .875rem; color: var(--muted); max-width: none; }
+  .item .measure { font-family: var(--mono); font-size: .75rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+  /* ── table ──────────────────────────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; margin-top: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: .875rem; }
+  th, td { text-align: left; padding: 12px 16px 12px 0; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--mono); font-size: .6875rem; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 400; }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ── footer ─────────────────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--line);
+    padding-block: 40px 56px;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    font-size: .8125rem;
+    color: var(--faint);
+  }
+  footer a { color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <span class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <defs><clipPath id="t"><rect width="32" height="32" rx="7.4"/></clipPath></defs>
+        <g clip-path="url(#t)">
+          <rect width="32" height="32" fill="#1a1816"/>
+          <circle cx="6.4" cy="30.4" r="16" fill="#ffffff"/>
+          <circle cx="21.8" cy="10.2" r="4.6" fill="#e7413c"/>
+        </g>
+      </svg>
+      magpie
+    </span>
+    <nav>
+      <a href="#install">Install</a>
+      <a href="#leaves">What is sent</a>
+      <a href="https://github.com/anonalabs/magpie">Source</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <h1>Remember any page,<br>without handing it over.</h1>
+    <p class="lede">
+      A model running on your own GPU reads the page and writes a few sentences.
+      Those few sentences go to your memory layer. The article never leaves the machine.
+    </p>
+
+    <div class="keys">
+      <kbd>Alt</kbd><kbd>Shift</kbd><kbd>M</kbd>
+      <span>remember this page</span>
+    </div>
+
+    <div class="actions">
+      <a class="btn btn-primary" href="#install">Install it</a>
+      <a class="btn btn-ghost" href="https://github.com/anonalabs/magpie">Read the source</a>
+    </div>
+    <p class="note">Chrome and Edge. Not in the Chrome Web Store yet — install it unpacked, below.</p>
+  </div>
+
+  <section id="leaves">
+    <div class="section-head">
+      <span class="eyebrow">What actually leaves your computer</span>
+      <h2>One request, and you choose what is in it.</h2>
+      <p>
+        Both panels are the same article. The difference is one field in one request,
+        and about two hundred and seventy times the content.
+      </p>
+    </div>
+
+    <div class="leaves">
+      <div class="leaf is-default">
+        <div class="leaf-head">
+          <span class="leaf-name">Distil on this device</span>
+          <span class="leaf-size">345 characters</span>
+        </div>
+        <p>The default. A local model writes the summary; the page text stays here.</p>
+        <div class="payload">The chapter compares storage engines built on log-structured merge trees against those built on B-trees. LSM-trees write sequentially and compact in the background, giving higher write throughput; B-trees update pages in place, giving more predictable read latency. The author argues the choice is workload-dependent.</div>
+      </div>
+
+      <div class="leaf">
+        <div class="leaf-head">
+          <span class="leaf-name">Send the page text</span>
+          <span class="leaf-size">93,288 characters</span>
+        </div>
+        <p>Opt-in. No model and no download — your memory layer does its own extraction.</p>
+        <div class="payload is-clipped">Storage and Retrieval. On the most fundamental level, a database needs to do two things: when you give it some data, it should store the data, and when you ask it again later, it should give the data back to you. In Chapter 2 we discussed data models and query languages — the format in which you (the application developer) give the database your data, and the mechanism by which you can ask for it again later. In this chapter we discuss the same from the database's point of view: how we can store the data that we're given, and how we can find it again when we're asked for it. Why should you, as an application developer, care how the database handles storage and retrieval internally? You're probably not going to implement your own storage engine from scratch, but you do need to select a storage engine that is appropriate for your application, from the many that are available…</div>
+      </div>
+    </div>
+
+    <p class="ratio">
+      Memory layers bill on what they extract, so that gap is roughly the cost gap too.
+      All the chunking and every model call happen on your machine and are free —
+      in distil mode a <b>200,000</b>-character document costs the same at the provider
+      as a <b>2,000</b>-character one.
+    </p>
+
+    <div class="code">
+<pre><span class="c">// the entire request, in distil mode</span>
+<span class="k">POST</span> https://api.anonalabs.com/v1/record
+
+{
+  <span class="k">"space_id"</span>: <span class="s">"reading"</span>,
+  <span class="k">"content"</span>:  <span class="s">"The chapter compares storage engines built on…"</span>,
+  <span class="k">"metadata"</span>: {
+    <span class="k">"url"</span>:         <span class="s">"https://example.com/ddia/ch3"</span>,
+    <span class="k">"title"</span>:       <span class="s">"Designing Data-Intensive Applications — Chapter 3"</span>,
+    <span class="k">"captured_at"</span>: <span class="s">"2026-09-13T09:41:00.000Z"</span>,
+    <span class="k">"source"</span>:      <span class="s">"magpie"</span>
+  },
+  <span class="k">"tags"</span>: [<span class="s">"magpie"</span>],
+  <span class="k">"async"</span>: true
+}</pre>
+    </div>
+    <p class="note">No telemetry, no analytics, and no magpie server. Your key goes from your browser to your memory layer and nowhere else.</p>
+  </section>
+
+  <section id="install">
+    <div class="section-head">
+      <span class="eyebrow">Install</span>
+      <h2>Four steps, about two minutes.</h2>
+      <p>It is not in the Chrome Web Store yet, so it loads unpacked. You need Node and a Chrome that has WebGPU.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div></div>
+        <div>
+          <h3>Clone it and build</h3>
+          <p><code>git clone https://github.com/anonalabs/magpie &amp;&amp; cd magpie</code></p>
+          <p><code>npm install &amp;&amp; npm run vendor:wasm &amp;&amp; npm run build</code></p>
+        </div>
+      </div>
+      <div class="step">
+        <div></div>
+        <div>
+          <h3>Load it into Chrome</h3>
+          <p>Open <span class="inline-code">chrome://extensions</span>, turn on Developer mode, choose <b>Load unpacked</b> and pick the <span class="inline-code">dist/</span> folder.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div></div>
+        <div>
+          <h3>Point it at your memory layer</h3>
+          <p>Open the popup, pick Anona Memory, Mem0 or Supermemory, and paste an API key. Your spaces load themselves.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div></div>
+        <div>
+          <h3>Press the shortcut on something worth keeping</h3>
+          <p><kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>M</kbd> remembers the page. The first capture downloads the model once — after that it is cached.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Three gestures</span>
+      <h2>One verb, and two ways to be deliberate.</h2>
+    </div>
+    <div class="grid">
+      <div class="item">
+        <h3>Remember the page</h3>
+        <p class="measure">Alt Shift M</p>
+        <p>No prompt, no confirmation. The summary appears afterwards as a receipt, not before as a checkpoint.</p>
+      </div>
+      <div class="item">
+        <h3>Remember it with a note</h3>
+        <p class="measure">Alt Shift N</p>
+        <p>The model can say what a page contains; it cannot say why you kept it. Opening this starts the summary, so you write the note while it runs.</p>
+      </div>
+      <div class="item">
+        <h3>Remember a passage</h3>
+        <p class="measure">right-click a selection</p>
+        <p>Stored exactly as selected. You already chose those words — no model, instant, works without WebGPU.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">What it reads</span>
+      <h2>Articles, PDFs, and whatever you highlighted.</h2>
+      <p>Chrome renders PDFs in a viewer no extension can enter, so magpie fetches and parses the file itself — up to forty pages, and it says so in the memory when it stops there.</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Model</th><th>Video memory</th><th>Context</th><th>Best for</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Gemma 3 1B</td><td class="num">711 MB</td><td class="num">4,096</td><td>integrated graphics</td></tr>
+          <tr><td>Qwen 2.5 1.5B</td><td class="num">1,630 MB</td><td class="num">4,096</td><td>a good default</td></tr>
+          <tr><td>Llama 3.2 3B</td><td class="num">2,264 MB</td><td class="num">4,096</td><td>best summaries</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Weights download once and are cached by the browser. Switching models downloads that one once.</p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Where it goes</span>
+      <h2>Your memory layer, not ours.</h2>
+      <p>Three adapters today, and adding one is a single file. Nothing is lost on the way: a capture is written to disk before any network call, so an unreachable provider or an expired key is a retry rather than lost work.</p>
+    </div>
+    <div class="grid">
+      <div class="item"><h3>Anona Memory</h3><p class="measure">POST /v1/record</p><p>Lists your spaces so you pick one rather than spell it.</p></div>
+      <div class="item"><h3>Mem0</h3><p class="measure">POST /v3/memories/add/</p><p>Lists the users it already holds.</p></div>
+      <div class="item"><h3>Supermemory</h3><p class="measure">POST /v3/documents</p><p>Keyed on the page, so re-remembering updates rather than duplicates.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    <span>MIT. Bundles Mozilla's Readability and pdf.js.</span>
+    <span><a href="https://github.com/anonalabs/magpie">github.com/anonalabs/magpie</a> · <a href="https://anonalabs.com">Anona Labs</a></span>
+  </footer>
+</div>

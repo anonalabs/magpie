@@ -14,9 +14,10 @@ import { fileURLToPath } from 'node:url';
 
 // Anona's own: the ink and plate of the dashboard, and the brand red that its
 // globals.css calls "the brand red itself".
-const INK = [0x12, 0x17, 0x1a];
-const WHITE = [0xfb, 0xfb, 0xf9];
-const ACCENT = [0xb0, 0x23, 0x24];
+// anonalabs/website's own: white paper, warm ink, and the one red.
+const INK = [0x1a, 0x18, 0x16];
+const WHITE = [0xff, 0xff, 0xff];
+const ACCENT = [0xe7, 0x41, 0x3c];
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n;

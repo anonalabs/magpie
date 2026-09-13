@@ -68,6 +68,9 @@ able to make the expensive path permanent.
 
 ## Install
 
+An install page lives in [`site/`](site/index.html) — a single static file, the
+same white-paper-and-one-red world as anonalabs.com.
+
 Not in the Chrome Web Store yet.
 
 ```bash
@@ -179,6 +182,18 @@ popup mid-capture and it attaches to what is already running.
 `model_lib` is rewritten to `chrome.runtime.getURL()`, and `npm run check:remote`
 fails the build if a CDN code URL reappears. Model *weights* are data and still
 stream from Hugging Face, once.
+
+## Models
+
+| | Video memory | Context | For |
+|---|---|---|---|
+| Gemma 3 1B | 711 MB | 4,096 | integrated graphics |
+| Qwen 2.5 1.5B | 1,630 MB | 4,096 | a good default |
+| Llama 3.2 3B | 2,264 MB | 4,096 | best summaries |
+
+A GPU that keeps faulting is almost always short of memory, and retrying does not
+reduce memory pressure — so the recovery offers the next model down and says how
+much it saves, rather than trying the same thing again.
 
 ## What it can read
 
