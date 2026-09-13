@@ -322,11 +322,16 @@
   .dest p { font-size: .8125rem; color: var(--muted); }
 
   /* ── what is sent ───────────────────────────────────────────────────────── */
-  .leaves { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  /* Stretch, not start: two panels comparing the same article should be the
+     same object twice, and a short one next to a tall one reads as two. */
+  .leaves { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 48rem) { .leaves { grid-template-columns: 1fr; } }
   .leaf {
     background: var(--sheet); border: 1px solid var(--line); border-radius: 10px;
     padding: 18px; display: grid; gap: 10px;
+    /* head, then the content taking the slack, then the note pinned below —
+       so the equal height shows as content rather than as trailing air. */
+    grid-template-rows: auto 1fr auto;
   }
   .leaf.is-default { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-tint); }
   .leaf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -346,7 +351,7 @@
     grid-template-columns: repeat(auto-fill, 7px);
     gap: 3px;
     justify-content: space-between;
-    align-content: start;
+    align-content: center;
     padding: 12px;
     background: var(--paper);
     border: 1px solid var(--line);
