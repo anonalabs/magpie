@@ -27,6 +27,15 @@ const ALLOWED = [
 // is listed deliberately; an unexplained host is a finding, not a nuisance.
 const INFORMATIONAL = [
   'https://webgpureport.org',        // in WebLLM's "your GPU is unsupported" message
+  // Where each memory layer's account and API key live. These are `href`s and
+  // link text in the popup, shown to a reader who has no key yet; nothing in
+  // the extension fetches them. The API hosts they pair with are in ALLOWED
+  // above, and a code URL on any of these still fails below.
+  'https://memory.anonalabs.com',
+  'https://mem0.ai',
+  'https://app.mem0.ai',
+  'https://supermemory.ai',
+  'https://console.supermemory.ai',
   // WebLLM's own modelLibURLPrefix constant. It is a bare prefix with no
   // filename and is only used to assemble prebuiltAppConfig, which magpie never
   // imports (see src/lib/models.js appConfigFor). Any concrete .wasm URL on this
