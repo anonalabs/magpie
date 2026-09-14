@@ -20,7 +20,7 @@ import { makePdf } from './make-pdf.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
-const PORT_CDP = 9411, PORT_WEB = 8411, PORT_API = 8443;
+const PORT_CDP = 9411, PORT_WEB = 8411, PORT_API = 8443, PORT_DOCS = 8444;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const results = [];
@@ -82,6 +82,45 @@ const web = createServer((req, res) => {
   res.end(readFileSync(join(HERE, 'fixtures', name)));
 }).listen(PORT_WEB);
 
+// A stand-in for docs.google.com. The editor page carries no readable text, the
+// way the real one does not, so a capture that goes through Readability rather
+// than the export endpoint fails the assertions below on content alone.
+const DOC_ID = '1a2B3c4D5e6F7g8H9i0JklmnopQRSTuvwxyz';
+const DENIED_ID = '1deniedDOCiddeniedDOCiddeniedDOCidde';
+const DOC_TEXT = [
+  'Quarterly planning',
+  '',
+  'The quarter opens with three commitments. The first is the ingestion ceiling, '
+  + 'which is one process-global semaphore and not the queue depth everyone assumed.',
+  '',
+  'The second is latency: the cascade shipped and took the rerank stage to a third '
+  + 'of what it was, measured end to end rather than in a lab.',
+  '',
+  'The third is billing, where the credit anchor moves with the default model so a '
+  + 'change of model is not a change of price.',
+].join('\n');
+
+const docs = createHttps(
+  { key: readFileSync(join(work, 'key.pem')), cert: readFileSync(join(work, 'cert.pem')) },
+  (req, res) => {
+    if (req.url.startsWith(`/document/d/${DOC_ID}/export`)) {
+      res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+      return res.end(DOC_TEXT);
+    }
+    // What Google answers for a document the session cannot read: a page, not
+    // an error, which is the whole reason the status code is not enough.
+    if (req.url.startsWith(`/document/d/${DENIED_ID}/export`)) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      return res.end('<!DOCTYPE html><html><head><title>Sign in</title></head><body>accounts.google.com/signin</body></html>');
+    }
+    const name = req.url.includes(DENIED_ID) ? 'A private doc' : 'Quarterly planning';
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(`<!DOCTYPE html><html><head><title>${name} - Google Docs</title></head>`
+      + '<body><div id="docs-chrome">File Edit View Insert Format Tools Extensions Help</div>'
+      + '<canvas width="816" height="1056"></canvas></body></html>');
+  },
+).listen(PORT_DOCS);
+
 const safeJson = (s) => { try { return JSON.parse(s); } catch { return s; } };
 
 // ------------------------------------------------------- extension build ----
@@ -91,7 +130,7 @@ const safeJson = (s) => { try { return JSON.parse(s); } catch { return s; } };
 const EXT = join(work, 'ext');
 cpSync(join(ROOT, 'dist'), EXT, { recursive: true });
 const manifest = JSON.parse(readFileSync(join(EXT, 'manifest.json'), 'utf8'));
-manifest.host_permissions.push(`http://127.0.0.1:${PORT_WEB}/*`);
+manifest.host_permissions.push(`http://127.0.0.1:${PORT_WEB}/*`, 'https://docs.google.com/*');
 writeFileSync(join(EXT, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
 // ------------------------------------------------------------------ cdp ----
@@ -99,14 +138,14 @@ const profile = mkdtempSync(join(tmpdir(), 'magpie-profile-'));
 const chrome = spawn('/usr/bin/google-chrome', [
   '--headless=new', `--remote-debugging-port=${PORT_CDP}`, `--user-data-dir=${profile}`,
   `--load-extension=${EXT}`, `--disable-extensions-except=${EXT}`,
-  `--host-resolver-rules=MAP api.anonalabs.com 127.0.0.1:${PORT_API}`,
+  `--host-resolver-rules=MAP api.anonalabs.com 127.0.0.1:${PORT_API}, MAP docs.google.com 127.0.0.1:${PORT_DOCS}`,
   '--ignore-certificate-errors',
   '--no-first-run', '--no-default-browser-check', 'about:blank',
 ], { stdio: ['ignore', 'ignore', 'pipe'] });
 
 function shutdown(code) {
   try { chrome.kill('SIGKILL'); } catch {}
-  api.close(); web.close();
+  api.close(); web.close(); docs.close();
   // Chrome may still be flushing its profile as it dies.
   const wipe = (p) => { try { rmSync(p, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch {} };
   wipe(work); wipe(profile);
@@ -242,6 +281,54 @@ async function main() {
   const afterChange = received.filter((r) => r.url === '/v1/record').at(-1);
   check('and the write really goes to the new space',
     afterChange?.body?.space_id === 'magpie-v2', afterChange?.body?.space_id);
+
+  // ---- Google Docs ------------------------------------------------------
+  // The editor paints its text into a canvas, so the only thing that proves
+  // this works is the content: the page carries the menu bar and nothing else,
+  // and the assertions below are on words that exist only in the export.
+  const { targetId: docTarget } = await browser.send('Target.createTarget', {
+    url: `https://docs.google.com/document/d/${DOC_ID}/edit`,
+  });
+  await sleep(1500);
+  const docTabId = await evalIn(cdp, `
+    const tabs = await chrome.tabs.query({});
+    return tabs.find(t => (t.url ?? '').includes('${DOC_ID}'))?.id ?? null;`);
+  check('the Google Doc tab is open', docTabId != null, `tabId ${docTabId}`);
+
+  const docJob = await evalIn(cdp, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'START_CAPTURE', tabId: ${docTabId} });`);
+  check('a Google Doc is remembered', docJob?.state === 'remembered',
+    `state "${docJob?.state}" ${docJob?.result?.message ?? ''}`);
+
+  const docSent = received.filter((r) => r.url === '/v1/record').at(-1);
+  check('the export text is what was sent, not the editor chrome',
+    docSent?.body?.content?.includes('one process-global semaphore')
+      && !docSent?.body?.content?.includes('File Edit View Insert'),
+    `${docSent?.body?.content?.length ?? 0} chars`);
+  check('and the title drops the product name the tab carries',
+    docSent?.body?.metadata?.title === 'Quarterly planning', docSent?.body?.metadata?.title);
+
+  // A document the session cannot read comes back as a page, not an error.
+  const { targetId: deniedTarget } = await browser.send('Target.createTarget', {
+    url: `https://docs.google.com/document/d/${DENIED_ID}/edit`,
+  });
+  await sleep(1500);
+  const deniedTabId = await evalIn(cdp, `
+    const tabs = await chrome.tabs.query({});
+    return tabs.find(t => (t.url ?? '').includes('${DENIED_ID}'))?.id ?? null;`);
+  const beforeDenied = received.filter((r) => r.url === '/v1/record').length;
+  const deniedJob = await evalIn(cdp, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'START_CAPTURE', tabId: ${deniedTabId} });`);
+
+  check('a sign-in wall is reported, not stored',
+    deniedJob?.state === 'error' && deniedJob?.result?.code === 'google_doc_not_readable',
+    `${deniedJob?.state} ${deniedJob?.result?.code ?? ''}`);
+  check('and nothing reached the provider',
+    received.filter((r) => r.url === '/v1/record').length === beforeDenied,
+    `${received.filter((r) => r.url === '/v1/record').length - beforeDenied} writes`);
+
+  await browser.send('Target.closeTarget', { targetId: docTarget });
+  await browser.send('Target.closeTarget', { targetId: deniedTarget });
 
   // Put the space back, so the cases below still describe a saved space that
   // the stubbed listing does not contain.

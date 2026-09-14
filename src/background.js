@@ -14,6 +14,7 @@ import * as captures from './lib/captures.js';
 import { settle } from './lib/queue.js';
 import { composeContent } from './lib/compose.js';
 import { looksLikePdf } from './lib/pdf-text.js';
+import { googleDoc, docTitle, docBody, looksLikeSignIn } from './lib/google-docs.js';
 
 const DRAIN_ALARM = 'magpie-drain';
 const IN_PAGE_SCRIPT_ID = 'magpie-in-page';
@@ -58,6 +59,93 @@ async function ensureOffscreen() {
 }
 
 // --------------------------------------------------------------- capture ----
+/**
+ * Google's editors paint their text into a canvas, so there is nothing in the
+ * DOM for Readability to find: it comes back with the menu bar, or with
+ * nothing. The document's own export endpoint is the text, and it is on the
+ * same origin as the tab, so the page can fetch it with the session it already
+ * has. That is why this runs in the MAIN world rather than in the content
+ * script: a fetch made by the page is the reader's own request, which needs no
+ * new permission, handles no credentials of theirs, and works on a private
+ * document exactly as it works on a public one.
+ */
+async function extractGoogleDoc(tabId, tab, doc) {
+  let answer;
+  try {
+    [{ result: answer }] = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      args: [doc.exportPath],
+      func: async (path) => {
+        try {
+          const res = await fetch(path, { credentials: 'same-origin' });
+          return {
+            ok: res.ok,
+            status: res.status,
+            contentType: res.headers.get('content-type') ?? '',
+            text: await res.text(),
+          };
+        } catch (err) {
+          return { ok: false, status: 0, contentType: '', text: '', error: String(err?.message ?? err) };
+        }
+      },
+    });
+  } catch (err) {
+    return { code: 'google_doc_failed', message: `Could not read this ${doc.label}. ${err?.message ?? err}` };
+  }
+
+  if (!answer) return { code: 'google_doc_failed', message: `Could not read this ${doc.label}.` };
+
+  // Google answers a request it will not serve with an HTML page rather than an
+  // error, so the status alone cannot tell a document from a sign-in wall, and
+  // storing the wall would file a login screen under the document's name.
+  if (!answer.ok || looksLikeSignIn(answer.text, answer.contentType)) {
+    return {
+      code: 'google_doc_not_readable',
+      message: answer.status === 0
+        ? `Could not reach Google to read this ${doc.label}. ${answer.error ?? ''}`.trim()
+        : `Google did not hand over this ${doc.label}. Open it signed in as an account that can read it, then try again.`,
+    };
+  }
+
+  const body = docBody(answer.text, doc.label);
+  if (body.text.trim().length < 40) {
+    return { code: 'no_article', message: `There is no text in this ${doc.label} to remember.` };
+  }
+
+  return {
+    ok: true,
+    title: docTitle(tab.title, doc.kind) || doc.label,
+    url: tab.url,
+    text: body.text,
+    sourceKind: doc.kind === 'document' ? 'google-doc' : `google-${doc.kind}`,
+    truncated: body.truncated,
+  };
+}
+
+/**
+ * The page, however it has to be read. Readability for a web page, the export
+ * endpoint for a Google editor. Both come back in the same shape, so everything
+ * downstream is the same code.
+ */
+async function readPage(tabId, tab) {
+  const doc = tab?.url ? googleDoc(tab.url) : null;
+  if (doc) return extractGoogleDoc(tabId, tab, doc);
+
+  try {
+    return await extractActiveTab(tabId);
+  } catch (err) {
+    // Chrome refuses injection on its own pages, the Web Store, and PDFs.
+    const blocked = /cannot be scripted|Extension manifest|chrome:\/\//i.test(String(err?.message));
+    return {
+      code: blocked ? 'page_not_supported' : 'extract_failed',
+      message: blocked
+        ? 'Chrome does not allow extensions to read this page.'
+        : `Could not read this page. ${err?.message ?? err}`,
+    };
+  }
+}
+
 async function extractActiveTab(tabId) {
   await chrome.scripting.executeScript({ target: { tabId }, files: ['content-script.js'] });
   const [{ result }] = await chrome.scripting.executeScript({
@@ -90,7 +178,7 @@ export async function startCapture(tabId, mode) {
     }
   }
 
-  return startArticleCapture(tabId, settings, effectiveMode);
+  return startArticleCapture(tabId, settings, effectiveMode, tab);
 }
 
 async function dispatchPdf(tabId, tab, settings, effectiveMode) {
@@ -112,20 +200,8 @@ async function dispatchPdf(tabId, tab, settings, effectiveMode) {
     });
 }
 
-async function startArticleCapture(tabId, settings, effectiveMode) {
-  let article;
-  try {
-    article = await extractActiveTab(tabId);
-  } catch (err) {
-    // Chrome refuses injection on its own pages, the Web Store, and PDFs.
-    const blocked = /cannot be scripted|Extension manifest|chrome:\/\//i.test(String(err?.message));
-    return fail(tabId, {
-      code: blocked ? 'page_not_supported' : 'extract_failed',
-      message: blocked
-        ? 'Chrome does not allow extensions to read this page.'
-        : `Could not read this page. ${err?.message ?? err}`,
-    });
-  }
+async function startArticleCapture(tabId, settings, effectiveMode, tab) {
+  const article = await readPage(tabId, tab);
 
   if (!article?.ok) return fail(tabId, article ?? { code: 'extract_failed', message: 'Could not read this page.' });
 
@@ -141,6 +217,7 @@ async function startArticleCapture(tabId, settings, effectiveMode) {
     url: article.url,
     capturedAt: new Date().toISOString(),
     mode: effectiveMode,
+    sourceKind: article.sourceKind ?? 'page',
     providerId: settings.providerId,
     destinationConfig: routing,
     destination: destinationLabel(settings.providerId, routing),
@@ -297,12 +374,10 @@ async function captureState(tabId) {
 async function startCompose(tabId) {
   const settings = await loadSettings();
 
-  let article;
-  try {
-    article = await extractActiveTab(tabId);
-  } catch (err) {
-    return { ok: false, code: 'extract_failed', message: `Could not read this page. ${err?.message ?? err}` };
-  }
+  // Same reader as the plain capture, so a Google Doc can be annotated too
+  // rather than being the one surface where the note path says "no article".
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  const article = await readPage(tabId, tab);
   if (!article?.ok) return { ok: false, ...(article ?? { code: 'extract_failed', message: 'Could not read this page.' }) };
 
   const routing = routingConfig(settings.providerId, providerConfig(settings));
@@ -313,6 +388,7 @@ async function startCompose(tabId) {
     title: article.title,
     url: article.url,
     mode: settings.mode,
+    sourceKind: article.sourceKind ?? 'page',
     destinationConfig: routing,
     destination: destinationLabel(settings.providerId, routing),
   };

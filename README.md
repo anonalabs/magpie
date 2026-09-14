@@ -8,7 +8,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-1a1816"></a>
   <img alt="Chrome and Edge, Manifest V3" src="https://img.shields.io/badge/Chrome%20%7C%20Edge-MV3-1a1816">
-  <img alt="124 unit and 72 end-to-end tests" src="https://img.shields.io/badge/tests-124%20unit%20%C2%B7%2072%20e2e-e7413c">
+  <img alt="140 unit and 78 end-to-end tests" src="https://img.shields.io/badge/tests-140%20unit%20%C2%B7%2078%20e2e-e7413c">
 </p>
 
 <p align="center">
@@ -205,6 +205,17 @@ looking at is not rearranged.
 fetches and parses the file itself, up to **40 pages**, and says so *in the content*
 when it stops there. Scanned PDFs need OCR and are refused with that reason;
 `file://` PDFs need *Allow access to file URLs*.
+
+**Google Docs, Sheets and Slides**, which paint their text into a `<canvas>`, so
+there is nothing in the DOM for Readability to find. magpie asks the document's
+own export endpoint instead (`/export?format=txt`, `csv` for a sheet), and it
+does so *from the page itself*: the fetch is same-origin and carries the session
+the reader already has, so private documents work, no Google credentials are
+handled, and no new permission is asked for. A sheet exports the tab you are
+looking at, not whichever is first in the file. A document Google will not serve
+comes back as an HTML sign-in page rather than an error, so the answer is checked
+for that and reported instead of being filed under the document's name. Published
+docs (`/d/e/.../pub`) are ordinary HTML and go through Readability as before.
 
 **Selections**, stored exactly as selected: no model, instant, works without
 WebGPU. The full selection is read from the page rather than from the context-menu
