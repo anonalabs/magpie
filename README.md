@@ -8,7 +8,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-1a1816"></a>
   <img alt="Chrome and Edge, Manifest V3" src="https://img.shields.io/badge/Chrome%20%7C%20Edge-MV3-1a1816">
-  <img alt="118 unit and 67 end-to-end tests" src="https://img.shields.io/badge/tests-118%20unit%20%C2%B7%2067%20e2e-e7413c">
+  <img alt="124 unit and 72 end-to-end tests" src="https://img.shields.io/badge/tests-124%20unit%20%C2%B7%2072%20e2e-e7413c">
 </p>
 
 <p align="center">
@@ -246,6 +246,7 @@ npm run watch       # rebuild dist/ on change
 npm test            # 118 unit tests
 npm run test:e2e    # 67 end-to-end, driving a real Chrome
 npm run shot        # screenshot a page of the built extension
+npm run shots       # regenerate the images this README uses
 npm run spike       # the phase-0 architecture probes
 npm run package     # the Chrome Web Store zip
 ```
