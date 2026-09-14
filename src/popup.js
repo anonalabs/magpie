@@ -345,9 +345,27 @@ function buildField(provider, field, value) {
   const wrap = document.createElement('label');
   wrap.className = 'field';
 
+  const head = document.createElement('span');
+  head.className = 'field-head';
+
   const caption = document.createElement('span');
   caption.className = 'field-label';
   caption.textContent = field.required ? field.label : `${field.label} (optional)`;
+  head.append(caption);
+
+  // Someone without a key has to leave the popup to get one, and nothing here
+  // used to say where. The host is named in the link rather than hidden behind
+  // "get one": this is an extension asking you to open somebody's site.
+  if (field.type === 'password' && provider.keysUrl) {
+    const link = document.createElement('a');
+    link.className = 'field-link';
+    link.href = provider.keysUrl;
+    link.target = '_blank';
+    link.rel = 'noreferrer noopener';
+    link.textContent = `${hostOf(provider.keysUrl)} \u2197`;
+    link.title = `Open ${provider.keysUrl} to sign in or sign up and copy a key`;
+    head.append(link);
+  }
 
   const row = document.createElement('div');
   row.className = 'field-row';
@@ -366,7 +384,7 @@ function buildField(provider, field, value) {
   note.className = 'field-note';
   note.id = `note-${field.key}`;
 
-  wrap.append(caption, row, note);
+  wrap.append(head, row, note);
   return wrap;
 }
 

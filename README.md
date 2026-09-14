@@ -21,7 +21,7 @@ You press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>. A model running on your 
 GPU reads the page and writes a few sentences, and those few sentences go to your
 memory layer. The article itself stays here.
 
-Works with **[Anona Memory](https://anonalabs.com)**, **[Mem0](https://mem0.ai)**
+Works with **[Anona Memory](https://memory.anonalabs.com)**, **[Mem0](https://mem0.ai)**
 and **[Supermemory](https://supermemory.ai)**.
 
 ## Contents

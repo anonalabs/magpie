@@ -5,6 +5,8 @@ import { captureMetadata } from '../compose.js';
 export const mem0 = {
   id: 'mem0',
   label: 'Mem0',
+  home: 'https://mem0.ai',
+  keysUrl: 'https://app.mem0.ai',
   // A monogram, deliberately: not Mem0's logo. Shipping a mark we do not have
   // and cannot verify would be passing off a drawing as somebody's brand, and
   // bundling a scraped one is a trademark decision that is not ours to take.

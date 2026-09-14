@@ -364,9 +364,22 @@
   .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   @media (max-width: 56rem) { .row3 { grid-template-columns: 1fr; } }
 
-  .dest {
+  /* A card is a link: a reader who does not have one of these yet has to be
+     able to get to it, and the endpoint written on the card is no use to
+     somebody who still needs an account. Grid rows, so the "sign up" line sits
+     on the bottom edge of all three however long the description runs. */
+  a.dest {
     display: grid; gap: 6px; padding: 18px;
+    grid-template-rows: auto auto auto 1fr auto;
     background: var(--sheet); border: 1px solid var(--line); border-radius: 10px;
+    color: inherit; text-decoration: none;
+    transition: border-color .18s ease, background .18s ease;
+  }
+  a.dest:hover { border-color: var(--red); background: var(--paper); }
+  a.dest:hover .dest-go { text-decoration: underline; }
+  .dest-go {
+    font-family: var(--mono); font-size: .6875rem; color: var(--red-text);
+    margin-top: 4px;
   }
   .dest-mark { width: 22px; height: 22px; display: block; margin-bottom: 2px; }
   .mono-tile { fill: var(--ink); }
@@ -585,7 +598,7 @@
       <h2>Your memory layer, whichever it is.</h2>
     </div>
     <div class="row3">
-      <div class="dest">
+      <a class="dest" href="https://memory.anonalabs.com" target="_blank" rel="noreferrer noopener">
         <svg class="dest-mark" viewBox="-11.4 14.7 533.5 483.5" aria-hidden="true"><polygon points="463.18,110.35 167.22,222.23 134.86,312.21 188.93,375.46" fill="#e7413c"/>
   <polygon points="132.99,25.53 -1.37,164.99 134.01,311.57" fill="#e7413c"/>
   <polygon points="437.94,90.16 346.86,24.67 164.71,224.22" fill="#e7413c"/>
@@ -601,8 +614,9 @@
         <b>Anona Memory</b>
         <span>POST /v1/record</span>
         <p>Lists your spaces so you pick one.</p>
-      </div>
-      <div class="dest">
+        <span class="dest-go">Sign up at memory.anonalabs.com ↗</span>
+      </a>
+      <a class="dest" href="https://mem0.ai" target="_blank" rel="noreferrer noopener">
         <!-- A monogram, not Mem0's logo. Drawing a company's mark and passing it
              off as theirs would be a lie; bundling a scraped one is a trademark
              decision that is not ours. This is the drop-in point for the real
@@ -614,8 +628,9 @@
         <b>Mem0</b>
         <span>POST /v3/memories/add/</span>
         <p>Lists the users it already holds.</p>
-      </div>
-      <div class="dest">
+        <span class="dest-go">Sign up at mem0.ai ↗</span>
+      </a>
+      <a class="dest" href="https://supermemory.ai" target="_blank" rel="noreferrer noopener">
         <svg class="dest-mark" viewBox="0 0 16 16" aria-hidden="true">
           <rect width="16" height="16" rx="4" class="mono-tile"/>
           <text x="8" y="11.6" class="mono-letter">s</text>
@@ -623,7 +638,8 @@
         <b>Supermemory</b>
         <span>POST /v3/documents</span>
         <p>Re-remembering updates, never duplicates.</p>
-      </div>
+        <span class="dest-go">Sign up at supermemory.ai ↗</span>
+      </a>
     </div>
     <p class="note">Adding another is one file. No telemetry, and no magpie server. Your key goes straight from the browser to whichever you chose.</p>
   </section>

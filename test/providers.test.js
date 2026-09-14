@@ -339,3 +339,12 @@ describe('where a capture lands', () => {
     expect(config.spaceId).toBe('default');
   });
 });
+
+describe('getting an account in the first place', () => {
+  it('every provider says where to sign up and where the key lives', () => {
+    for (const provider of Object.values(PROVIDERS)) {
+      expect(provider.home, `${provider.id} home`).toMatch(/^https:\/\//);
+      expect(provider.keysUrl, `${provider.id} keysUrl`).toMatch(/^https:\/\//);
+    }
+  });
+});

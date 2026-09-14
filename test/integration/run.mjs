@@ -486,6 +486,15 @@ async function main() {
     return { tag: el?.tagName ?? 'MISSING', values: [], labels: [], selected: el?.value, note: document.getElementById('note-spaceId')?.textContent ?? '' };`);
 
   check('the space field becomes a picker on its own', picker.tag === 'SELECT', picker.tag);
+
+  // Somebody arriving without an account has to be told where to get one.
+  const keyLink = await evalIn(cdpSettings, `
+    const a = document.querySelector('.field-link');
+    return a ? { href: a.href, text: a.textContent } : null;`);
+  check('the key field links to where the key comes from',
+    keyLink?.href === 'https://memory.anonalabs.com/dashboard/keys', keyLink?.href ?? 'no link');
+  check('and the link names the host it opens',
+    (keyLink?.text ?? '').includes('memory.anonalabs.com'), keyLink?.text ?? '');
   check('it lists the real spaces', picker.values.slice(0, 3).join(','), picker.values.join(','));
   check('a shared space is offered by its qualified id',
     picker.values.includes('acme:default'), picker.values.join(','));
