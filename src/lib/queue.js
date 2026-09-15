@@ -110,7 +110,9 @@ export function prune(records, limit = DONE_HISTORY_LIMIT) {
  */
 export function settle(record, result, now = Date.now()) {
   if (result?.ok) {
-    const { content, ...rest } = record;
+    // Both of them: `sourceText` is a whole article, and keeping it after the
+    // write is the same mistake as keeping the content, several times larger.
+    const { content, sourceText, ...rest } = record;
     return { ...rest, state: 'done', lastError: null, nextAttemptAt: null, settledAt: now };
   }
 

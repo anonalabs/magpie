@@ -70,6 +70,17 @@ const api = createHttps(
   },
 ).listen(PORT_API);
 
+// The local store, actually running. A stub would test the adapter against a
+// description of the daemon rather than against the daemon, and the two halves
+// of this feature were written together, which is exactly when that goes wrong.
+const LOCAL_HOME = join(work, 'magpie-local');
+mkdirSync(LOCAL_HOME, { recursive: true });
+const localStore = spawn(process.execPath, [join(ROOT, 'local/src/cli.js'), 'serve'], {
+  env: { ...process.env, MAGPIE_HOME: LOCAL_HOME, MAGPIE_PORT: '7777' },
+  stdio: ['ignore', 'ignore', 'pipe'],
+});
+let localToken = null;
+
 const PDFS = { '/short.pdf': makePdf(3), '/long.pdf': makePdf(45) };
 
 const web = createServer((req, res) => {
@@ -146,6 +157,7 @@ const chrome = spawn('/usr/bin/google-chrome', [
 function shutdown(code) {
   try { chrome.kill('SIGKILL'); } catch {}
   api.close(); web.close(); docs.close();
+  try { localStore.kill('SIGKILL'); } catch {}
   // Chrome may still be flushing its profile as it dies.
   const wipe = (p) => { try { rmSync(p, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch {} };
   wipe(work); wipe(profile);
@@ -281,6 +293,86 @@ async function main() {
   const afterChange = received.filter((r) => r.url === '/v1/record').at(-1);
   check('and the write really goes to the new space',
     afterChange?.body?.space_id === 'magpie-v2', afterChange?.body?.space_id);
+
+  // ---- the local store --------------------------------------------------
+  // The daemon is the real one, started at the top of this file. What is being
+  // tested is the contract between two programs written in the same week, which
+  // is exactly the pair most likely to agree with each other and with nothing.
+  localToken = readFileSync(join(LOCAL_HOME, 'token'), 'utf8').trim();
+  const localHealth = await fetch('http://127.0.0.1:7777/health').then((r) => r.json()).catch(() => null);
+  check('magpie-local is running', localHealth?.name === 'magpie-local', JSON.stringify(localHealth));
+
+  await evalIn(cdp, `
+    await chrome.storage.local.set({ settings: {
+      mode: 'raw', modelSize: 'small', providerId: 'local', chosenDestination: true,
+      providers: { local: { apiKey: '${localToken}', spaceId: 'reading' } },
+    }});
+    return true;`);
+
+  const localJob = await evalIn(cdp, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'START_CAPTURE', tabId: ${tabId} });`);
+  check('a capture lands in the local store', localJob?.state === 'remembered',
+    `state "${localJob?.state}" ${localJob?.result?.message ?? ''}`);
+  check('and the receipt names this machine',
+    localJob?.result?.providerLabel === 'This machine \u00b7 reading', String(localJob?.result?.providerLabel));
+
+  const stored = await fetch('http://127.0.0.1:7777/v1/search?q=recorded&space=reading', {
+    headers: { authorization: `Bearer ${localToken}` },
+  }).then((r) => r.json());
+  check('the page is searchable straight away, with no model and no account',
+    stored.results?.[0]?.url?.startsWith('http://127.0.0.1'), stored.results?.[0]?.title ?? 'nothing found');
+
+  // The popup asks the worker, because the token lives there and not in the
+  // page. Its own popup, not one opened later in this file: a test that reads
+  // a binding from further down passes only by accident of ordering.
+  const { targetId: searchTab } = await browser.send('Target.createTarget', { url: `chrome-extension://${extId}/popup.html` });
+  const cdpSearch = await waitFor(async () => {
+    const found = (await http('/json/list')).find((x) => x.id === searchTab);
+    if (!found?.webSocketDebuggerUrl) return null;
+    const c = connect(found.webSocketDebuggerUrl); await c.ready; await c.send('Runtime.enable');
+    const { result } = await c.send('Runtime.evaluate', { expression: 'typeof chrome?.runtime?.id === "string"', returnByValue: true });
+    return result.value ? c : null;
+  }, 'the search popup');
+
+  const fromPopup = await evalIn(cdpSearch, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'SEARCH_LOCAL', query: 'recorded' });`);
+  check('the popup can search it', fromPopup?.ok && fromPopup.results.length > 0,
+    `${fromPopup?.results?.length ?? 0} result(s) ${fromPopup?.message ?? ''}`);
+
+  // Only the local store is readable. The others are written to and never asked.
+  await evalIn(cdp, `
+    const s = (await chrome.storage.local.get('settings')).settings;
+    await chrome.storage.local.set({ settings: { ...s, providerId: 'anona' } });
+    return true;`);
+  const refused = await evalIn(cdpSearch, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'SEARCH_LOCAL', query: 'anything' });`);
+  check('searching a cloud provider is refused rather than faked',
+    refused?.ok === false && refused.code === 'not_local', refused?.code ?? 'no answer');
+
+  await browser.send('Target.closeTarget', { targetId: searchTab });
+
+  // With the store stopped, a capture is held rather than lost, and says so.
+  localStore.kill('SIGKILL');
+  await sleep(700);
+  await evalIn(cdp, `
+    const s = (await chrome.storage.local.get('settings')).settings;
+    await chrome.storage.local.set({ settings: { ...s, providerId: 'local' } });
+    return true;`);
+  const offline = await evalIn(cdp, `
+    return await chrome.runtime.sendMessage({ target: 'background', type: 'START_CAPTURE', tabId: ${tabId} });`);
+  check('a capture with the store stopped is queued, not lost',
+    offline?.state === 'queued', `${offline?.state} ${offline?.result?.code ?? ''}`);
+  check('and says what to start',
+    String(offline?.result?.message ?? '').includes('magpie-local'), offline?.result?.message ?? '');
+
+  // Put the destination back, or every case below this one captures into a
+  // store that was deliberately killed two lines ago.
+  await evalIn(cdp, `
+    await chrome.storage.local.set({ settings: {
+      mode: 'raw', modelSize: 'small', providerId: 'anona', chosenDestination: true,
+      providers: { anona: { apiKey: 'anona_live_testkey', spaceId: 'magpie-test' } },
+    }});
+    return true;`);
 
   // ---- Google Docs ------------------------------------------------------
   // The editor paints its text into a canvas, so the only thing that proves

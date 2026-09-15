@@ -1,7 +1,25 @@
 # Local memory store
 
-Status: proposed 2026-09-15. Not approved, not started. A fourth piece, larger
-than the first three, because it ships a second program.
+Status: built 2026-09-15, in `local/`. A fourth piece, larger than the first
+three, because it ships a second program.
+
+Built with three decisions taken by the owner after this was written, all of
+which changed it:
+
+1. **Embeddings ship in v0**, not the release after. The sequencing argument
+   below (FTS5 first) was overruled and the model went in with everything else.
+2. **The first run asks** where captures should go, with the local store listed
+   first. Open question 3 is closed that way.
+3. **The popup searches too**, not only Claude over MCP. There are two readers
+   of the query API rather than one.
+
+Open question 1 resolved itself in ten minutes: `node:sqlite` carries FTS5 with
+`bm25()` and `snippet()`, and supports `allowExtension`, so the daemon ships
+with **no native dependency** and sqlite-vec is still reachable later. Two
+things not in this document turned up while building, and are in
+`local/README.md`: FTS5 needs the **porter** tokenizer or "compaction" fails to
+find "compact", and the query must be **OR**-joined, because FTS5's implicit AND
+returns nothing for the way people type.
 
 ## The problem
 

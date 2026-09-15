@@ -9,6 +9,10 @@ export const DEFAULT_SETTINGS = {
   mode: 'distill',
   modelSize: DEFAULT_MODEL_SIZE,
   providerId: DEFAULT_PROVIDER_ID,
+  // False until somebody picks a destination. Three states, not two: unchosen
+  // is not the same as chosen-and-not-finished, and only the first should be
+  // asked the question again.
+  chosenDestination: false,
   providers: Object.fromEntries(
     Object.entries(PROVIDERS).map(([id, p]) => [
       id,

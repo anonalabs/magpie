@@ -8,9 +8,10 @@ import { MODELS } from './lib/models.js';
 import { captureKey } from './lib/queue.js';
 
 const $ = (id) => document.getElementById(id);
-const STATES = ['state-idle', 'state-working', 'state-queued', 'state-done', 'state-error'];
+const STATES = ['state-choose', 'state-idle', 'state-working', 'state-queued', 'state-done', 'state-error'];
 const VIEWS = {
-  main: 'view-main', compose: 'view-compose', settings: 'view-settings', history: 'view-history',
+  main: 'view-main', compose: 'view-compose', settings: 'view-settings',
+  history: 'view-history', search: 'view-search',
 };
 const show = (id) => { for (const s of STATES) $(s).hidden = s !== id; };
 
@@ -28,8 +29,21 @@ function rail(mode, fraction = 0) {
 }
 
 // -------------------------------------------------------------- rendering ---
+/**
+ * Idle, or the question, decided in one place.
+ *
+ * Two callers reach the resting state, boot and every finished job, and having
+ * each decide for itself is how the question ends up drawn underneath the
+ * button it is supposed to replace.
+ */
+function restingState() {
+  if (!settings) return 'state-idle';
+  const missing = missingFields(getProvider(settings.providerId), providerConfig(settings));
+  return !settings.chosenDestination && missing.length > 0 ? 'state-choose' : 'state-idle';
+}
+
 function renderJob(job) {
-  if (!job) { rail('off'); return show('state-idle'); }
+  if (!job) { rail('off'); return show(restingState()); }
 
   // A failure thrown anywhere in the worker comes back as {ok:false, code,
   // message} with no `state` at all. Without this it fell through to the error
@@ -174,11 +188,16 @@ function showView(next) {
   $('destination-text').textContent = away ? 'Back' : destinationLabel();
   renderDestinationMark(away);
   $('open-history').hidden = away;
+  // Only the local store can be read back. The other three are written to and
+  // never asked for anything, so offering a search box for them would be a
+  // promise the product does not keep.
+  $('open-search').hidden = away || settings?.providerId !== 'local';
 
   // Coming back from a long view at its old scroll position looks like nothing
   // happened.
   window.scrollTo(0, 0);
   if (next === 'history') renderHistory();
+  if (next === 'search') { $('search-input').focus(); $('search-input').select(); }
 }
 
 // --------------------------------------------------------------- compose ----
@@ -529,6 +548,8 @@ async function save() {
     mode: document.querySelector('input[name=mode]:checked').value,
     modelSize: $('model-size').value,
     providerId,
+    // Configuring a provider is choosing one, so the question is not asked again.
+    chosenDestination: true,
     providers: { ...settings.providers, [providerId]: config },
   });
 
@@ -709,10 +730,80 @@ function renderIdle() {
     $('destination').classList.toggle('unset', missing.length > 0);
   }
 
+  // Nothing chosen yet: ask, rather than defaulting. Where a capture goes is
+  // the one decision magpie does not make on somebody's behalf, and a default
+  // would be that decision made quietly.
+  show(restingState());
+
   $('remember').disabled = missing.length > 0;
   $('idle-hint').textContent = missing.length
     ? `Add your ${provider.label} ${joinFields(missing)} to start.`
     : MODE_NOTES[settings.mode];
+}
+
+function debounce(fn, ms) {
+  let timer = null;
+  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+}
+
+let searching = null;
+
+async function runSearch() {
+  const query = $('search-input').value.trim();
+  const results = $('search-results');
+
+  if (!query) { results.replaceChildren(); $('search-note').textContent = ''; return; }
+
+  $('search-note').textContent = 'Searching…';
+  const ticket = Symbol('search');
+  searching = ticket;
+  const answer = await toBackground(MSG.SEARCH_LOCAL, { query });
+  // A slower earlier search must not overwrite a faster later one.
+  if (searching !== ticket) return;
+
+  if (!answer?.ok) {
+    results.replaceChildren();
+    $('search-note').textContent = answer?.message ?? 'Could not search.';
+    $('search-note').classList.add('bad');
+    return;
+  }
+
+  $('search-note').classList.remove('bad');
+  $('search-note').textContent = answer.results.length
+    ? `${answer.results.length} passage${answer.results.length === 1 ? '' : 's'}.`
+    : `Nothing saved matches "${query}".`;
+
+  results.replaceChildren(...answer.results.map(renderResult));
+}
+
+function renderResult(row) {
+  const card = document.createElement('a');
+  card.className = 'result';
+  card.href = row.url;
+  card.target = '_blank';
+  card.rel = 'noreferrer noopener';
+
+  const title = document.createElement('b');
+  title.textContent = row.title;
+
+  const meta = document.createElement('span');
+  meta.className = 'result-meta';
+  meta.textContent = `${ago(row.captured_at)} · ${hostOf(row.url)} · ${row.matched.join(' + ')}`;
+
+  const snippet = document.createElement('p');
+  // The store marks the matched words with brackets rather than HTML, so they
+  // can be highlighted here without ever putting a page's text into innerHTML.
+  for (const piece of String(row.snippet).split(/(\[[^\]]*\])/)) {
+    if (!piece) continue;
+    if (piece.startsWith('[') && piece.endsWith(']')) {
+      const hit = document.createElement('mark');
+      hit.textContent = piece.slice(1, -1);
+      snippet.append(hit);
+    } else snippet.append(document.createTextNode(piece));
+  }
+
+  card.append(title, meta, snippet);
+  return card;
 }
 
 /**
@@ -769,6 +860,19 @@ async function renderShortcut() {
   $('provider').onchange = renderProviderFields;
   $('model-size').onchange = renderModelNote;
   $('inpage').onchange = toggleInPage;
+  $('open-search').onclick = () => showView('search');
+  $('search-input').oninput = debounce(runSearch, 220);
+  $('search-input').onkeydown = (event) => { if (event.key === 'Enter') runSearch(); };
+
+  for (const [id, providerId] of [['choose-local', 'local'], ['choose-cloud', 'anona']]) {
+    $(id).onclick = async () => {
+      settings = await saveSettings({ providerId, chosenDestination: true });
+      renderSettings();
+      renderIdle();
+      showView('settings');
+    };
+  }
+
   $('destination').onclick = () => showView(view === 'main' ? 'settings' : 'main');
   $('close-settings').onclick = () => showView('main');
   $('open-history').onclick = () => showView('history');

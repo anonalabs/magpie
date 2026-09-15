@@ -1,0 +1,24 @@
+{
+  "name": "magpie-local",
+  "version": "0.1.0",
+  "description": "A local memory store for magpie: your captures on your own machine, searchable, and readable by Claude over MCP.",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/anonalabs/magpie.git", "directory": "local" },
+  "type": "module",
+  "bin": { "magpie-local": "src/cli.js" },
+  "engines": { "node": ">=22.5.0" },
+  "files": ["src", "README.md"],
+  "scripts": {
+    "start": "node src/cli.js serve",
+    "mcp": "node src/cli.js mcp",
+    "sync:lib": "node scripts/sync-lib.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}

@@ -18,6 +18,11 @@
   </span>
 
   <span class="head-actions">
+  <button class="icon-button" id="open-search" title="Search what you have remembered" aria-label="Search" hidden>
+    <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2 14 14"/>
+    </svg>
+  </button>
   <button class="icon-button" id="open-history" title="What you have remembered" aria-label="History">
     <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
       <path d="M2 4h12M2 8h12M2 12h7"/>
@@ -40,6 +45,18 @@
     <div class="subject-title" id="page-title">&hellip;</div>
     <div class="subject-host" id="page-url"></div>
   </div>
+
+  <section id="state-choose" class="state" hidden>
+    <p class="choose-question">Where should magpie keep what you remember?</p>
+    <button class="choice" id="choose-local">
+      <b>This machine</b>
+      <span>A file on your own disk, searchable here and readable by Claude. No account.</span>
+    </button>
+    <button class="choice" id="choose-cloud">
+      <b>A memory layer</b>
+      <span>Anona Memory, Mem0 or Supermemory. Needs an account and an API key.</span>
+    </button>
+  </section>
 
   <section id="state-idle" class="state">
     <button class="primary" id="remember">
@@ -153,6 +170,15 @@
 
   <button class="primary" id="compose-save"><span>Remember it</span></button>
   <button class="ghost" id="compose-cancel">Cancel</button>
+</main>
+
+<main id="view-search" hidden>
+  <div class="search-bar">
+    <input id="search-input" type="search" placeholder="Search everything you have remembered"
+           autocomplete="off" spellcheck="false">
+  </div>
+  <p class="search-note" id="search-note"></p>
+  <div id="search-results"></div>
 </main>
 
 <main id="view-history" hidden>

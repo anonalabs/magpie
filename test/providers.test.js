@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
-  PROVIDERS, getProvider, missingFields, push, loadFieldOptions,
+  PROVIDERS, PROVIDER_ORIGINS, getProvider, missingFields, push, loadFieldOptions,
   routingConfig, destinationLabel, sendConfig,
 } from '../src/lib/providers/registry.js';
+import { isRetryable } from '../src/lib/queue.js';
 
 const capture = {
   title: 'A Page',
@@ -346,5 +347,66 @@ describe('getting an account in the first place', () => {
       expect(provider.home, `${provider.id} home`).toMatch(/^https:\/\//);
       expect(provider.keysUrl, `${provider.id} keysUrl`).toMatch(/^https:\/\//);
     }
+  });
+});
+
+describe('the local store', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  const config = { apiKey: 'magpie_local_abc', spaceId: 'reading' };
+
+  it('posts to the loopback address, and nowhere else', async () => {
+    const fetchMock = mockFetch(201, { id: 'page-1' });
+    await push('local', capture, config);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://127.0.0.1:7777/v1/record');
+    expect(init.headers.Authorization).toBe('Bearer magpie_local_abc');
+    expect(JSON.parse(init.body).space_id).toBe('reading');
+  });
+
+  it('sends the source only to this provider, and only when there is one', async () => {
+    const fetchMock = mockFetch(201, { id: 'page-1' });
+    await push('local', { ...capture, sourceText: 'the whole article' }, config);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).full_text).toBe('the whole article');
+
+    const second = mockFetch(201, { id: 'page-2' });
+    await push('local', capture, config);
+    expect(JSON.parse(second.mock.calls[0][1].body)).not.toHaveProperty('full_text');
+  });
+
+  it('never sends the source to a provider that bills for it', async () => {
+    for (const id of ['anona', 'mem0', 'supermemory']) {
+      const fetchMock = mockFetch(201, { id: 'x' });
+      await push(id, { ...capture, sourceText: 'the whole article' },
+        { apiKey: 'k', spaceId: 's', userId: 'u', containerTag: 't' });
+      expect(JSON.stringify(fetchMock.mock.calls[0][1].body)).not.toContain('the whole article');
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('says the store is not running, rather than that the network failed', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    const result = await push('local', capture, config);
+
+    expect(result.code).toBe('local_not_running');
+    expect(result.message).toContain('npx magpie-local serve');
+    // and it is a retry, not a dead end: the store comes back when it is started
+    expect(isRetryable(result)).toBe(true);
+  });
+
+  it('names the token when the token is what is wrong', async () => {
+    mockFetch(401, { error: { code: 'bad_token', message: 'Wrong or missing token.' } });
+    const result = await push('local', capture, config);
+    expect(result.code).toBe('not_configured');
+    expect(result.message).toContain('magpie-local token');
+  });
+
+  it('is in the host permissions the manifest is generated from', () => {
+    expect(PROVIDER_ORIGINS).toContain('http://127.0.0.1:7777/*');
+  });
+
+  it('has no content ceiling, because there is no bill', () => {
+    expect(PROVIDERS.local.maxContentChars).toBeNull();
   });
 });

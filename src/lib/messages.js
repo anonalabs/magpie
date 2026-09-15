@@ -26,6 +26,7 @@ export const MSG = {
   PENDING_COMPOSE: 'PENDING_COMPOSE',
   START_CAPTURE_FROM_PAGE: 'START_CAPTURE_FROM_PAGE',
   ENGINE_STATUS: 'ENGINE_STATUS',
+  SEARCH_LOCAL: 'SEARCH_LOCAL',
 };
 
 export const toBackground = (type, payload = {}) =>

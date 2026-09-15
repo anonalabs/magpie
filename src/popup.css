@@ -549,3 +549,41 @@ body.sheet .primary { padding: 12px; }
 }
 
 [hidden] { display: none !important; }
+
+/* ── the first question ─────────────────────────────────────────────────────
+   Asked once, on a fresh install, because where a capture goes is the one
+   decision this extension does not make for somebody. */
+.choose-question { font-size: 13px; color: var(--ink); margin: 0 0 10px; }
+.choice {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+  padding: 11px 12px; margin-bottom: 8px; color: inherit; font: inherit;
+  transition: border-color .15s var(--ease), background .15s var(--ease);
+}
+.choice:hover { border-color: var(--accent); background: var(--bg); }
+.choice b { display: block; font-size: 13px; margin-bottom: 2px; }
+.choice span { display: block; font-size: 11px; color: var(--muted); line-height: 1.45; }
+
+/* ── searching what is on this machine ──────────────────────────────────── */
+.search-bar { padding: 2px 0 8px; }
+#search-input {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 13px;
+  padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--bg); color: var(--ink);
+}
+#search-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+.search-note { font-size: 11px; color: var(--muted); margin: 0 0 10px; }
+.search-note.bad { color: var(--danger); }
+.result {
+  display: block; text-decoration: none; color: inherit;
+  padding: 10px 11px; margin-bottom: 8px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+}
+.result:hover { border-color: var(--accent); background: var(--bg); }
+.result b { display: block; font-size: 12.5px; margin-bottom: 2px; }
+.result-meta {
+  display: block; font-family: var(--font-mono); font-size: 10px;
+  color: var(--muted); margin-bottom: 6px;
+}
+.result p { margin: 0; font-size: 11.5px; line-height: 1.5; color: var(--ink-soft); }
+.result mark { background: var(--accent-soft); color: var(--accent-text); border-radius: 2px; }

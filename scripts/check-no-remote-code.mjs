@@ -15,6 +15,10 @@ const DIST = join(dirname(fileURLToPath(import.meta.url)), '../dist');
 // Hosts that may legitimately appear: they serve model *weights*, which are
 // data. Anything else that looks like a code fetch is a failure.
 const ALLOWED = [
+  // The local store, which is a program on this machine and not a host at all.
+  // It is here rather than in INFORMATIONAL because the extension really does
+  // fetch it; what the rule below still forbids is fetching *code* from it.
+  'http://127.0.0.1:7777',
   'https://huggingface.co',
   'https://cdn-lfs.huggingface.co',
   'https://cdn-lfs-us-1.huggingface.co',

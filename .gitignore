@@ -4,4 +4,4 @@ dist/
 .DS_Store
 
 # Vendored model libraries are committed on purpose (reproducible builds,
-# and the shipped bytes are the reviewed bytes) — do not ignore src/vendor/wasm.
+# and the shipped bytes are the reviewed bytes): do not ignore src/vendor/wasm.

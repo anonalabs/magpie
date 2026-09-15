@@ -22,7 +22,9 @@ GPU reads the page and writes a few sentences, and those few sentences go to you
 memory layer. The article itself stays here.
 
 Works with **[Anona Memory](https://memory.anonalabs.com)**, **[Mem0](https://mem0.ai)**
-and **[Supermemory](https://supermemory.ai)**.
+and **[Supermemory](https://supermemory.ai)**, or with
+**[no service at all](local/)**: `magpie-local` keeps your captures in a SQLite
+file on your own machine, searches them, and lets Claude read them over MCP.
 
 ## Contents
 
@@ -216,6 +218,28 @@ looking at, not whichever is first in the file. A document Google will not serve
 comes back as an HTML sign-in page rather than an error, so the answer is checked
 for that and reported instead of being filed under the document's name. Published
 docs (`/d/e/.../pub`) are ordinary HTML and go through Readability as before.
+
+### Where it can write
+
+Four destinations, one adapter each, chosen the first time you open the popup.
+magpie does not pick for you: where your reading goes is the one decision it
+never makes quietly.
+
+| | Needs | Read back |
+|---|---|---|
+| **This machine** (`local/`) | nothing | search in the popup, and in Claude over MCP |
+| Anona Memory | an account and a key | in Anona |
+| Mem0 | an account and a key | in Mem0 |
+| Supermemory | an account and a key | in Supermemory |
+
+**The local store is the only one magpie can read back from.** The other three
+are written to and never asked for anything, which is why the search box appears
+only when the local store is the destination. It is also the only one sent the
+**full source text**: a memory layer bills for what it extracts, so it gets the
+summary, while a file on your own disk has no bill and keeps the article and
+indexes it. See [`local/README.md`](local/README.md).
+
+### What it can read
 
 **Selections**, stored exactly as selected: no model, instant, works without
 WebGPU. The full selection is read from the page rather than from the context-menu

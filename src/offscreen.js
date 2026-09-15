@@ -368,6 +368,11 @@ async function runDistill({ job: incoming, model, draft = false }) {
       destinationConfig: job.destinationConfig,
       destination: job.destination,
       content: summary,
+      // The source rides along only for the local store, which indexes it. A
+      // cloud provider is billed on what it extracts and is sent the summary
+      // alone, so carrying the article to it would cost money and disk for
+      // nothing.
+      ...(job.providerId === 'local' ? { sourceText: job.text } : {}),
       chars: summary.length,
       kind: 'summary',
       pagesRead: job.pagesRead,

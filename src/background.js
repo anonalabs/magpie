@@ -9,6 +9,7 @@
 import { MSG, TO_BACKGROUND, respondAsync, toOffscreen } from './lib/messages.js';
 import { loadSettings, providerConfig } from './lib/settings.js';
 import { push, routingConfig, destinationLabel, sendConfig } from './lib/providers/registry.js';
+import { ORIGIN as LOCAL_ORIGIN } from './lib/providers/local.js';
 import { MODELS } from './lib/models.js';
 import * as captures from './lib/captures.js';
 import { settle } from './lib/queue.js';
@@ -273,6 +274,7 @@ async function send(record) {
     title: record.title,
     url: record.url,
     content: record.content,
+    sourceText: record.sourceText,
     capturedAt: record.capturedAt,
     mode: record.mode,
     note: record.note,
@@ -432,6 +434,49 @@ async function saveCompose(draft) {
     chars: content.length,
     kind: draft.mode === 'raw' ? 'article text' : 'summary',
   }));
+}
+
+/**
+ * Searching the local store.
+ *
+ * Only the local store can be read back at all: magpie writes to the cloud
+ * providers and none of them are asked to hand anything over. So this answers
+ * `not_local` rather than pretending, and the popup hides the search button
+ * unless the local store is the destination.
+ */
+async function searchLocal(query, space) {
+  const settings = await loadSettings();
+  if (settings.providerId !== 'local') {
+    return { ok: false, code: 'not_local', message: 'Only the local store can be searched from here.' };
+  }
+
+  const config = providerConfig(settings);
+  if (!config.apiKey) {
+    return { ok: false, code: 'not_configured', message: 'Add the magpie-local token in settings first.' };
+  }
+
+  const url = new URL(`${LOCAL_ORIGIN}/v1/search`);
+  url.searchParams.set('q', query ?? '');
+  url.searchParams.set('k', '12');
+  if (space ?? config.spaceId) url.searchParams.set('space', space ?? config.spaceId);
+
+  let res;
+  try {
+    res = await fetch(url, { headers: { Authorization: `Bearer ${config.apiKey}` } });
+  } catch {
+    return {
+      ok: false,
+      code: 'local_not_running',
+      message: 'magpie-local is not running. Start it with `npx magpie-local serve`.',
+    };
+  }
+
+  let payload = null;
+  try { payload = await res.json(); } catch { /* leave null */ }
+  if (!res.ok) {
+    return { ok: false, code: payload?.error?.code ?? `http_${res.status}`, message: payload?.error?.message ?? `magpie-local returned HTTP ${res.status}.` };
+  }
+  return { ok: true, results: payload?.results ?? [] };
 }
 
 /**
@@ -664,6 +709,8 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
         if (pendingCompose != null) await chrome.storage.session.remove('pendingCompose');
         return { tabId: pendingCompose ?? null };
       }, respond);
+    case MSG.SEARCH_LOCAL:
+      return respondAsync(() => searchLocal(msg.query, msg.space), respond);
     case MSG.GET_CAPTURE_STATE:
       return respondAsync(() => captureState(msg.tabId), respond);
     case MSG.PRELOAD_MODEL:

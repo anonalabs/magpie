@@ -1,8 +1,9 @@
 import { anona } from './anona.js';
+import { local, ORIGIN as LOCAL_ORIGIN } from './local.js';
 import { mem0 } from './mem0.js';
 import { supermemory } from './supermemory.js';
 
-export const PROVIDERS = { anona, mem0, supermemory };
+export const PROVIDERS = { local, anona, mem0, supermemory };
 export const DEFAULT_PROVIDER_ID = 'anona';
 
 /**
@@ -11,6 +12,7 @@ export const DEFAULT_PROVIDER_ID = 'anona';
  * writes the manifest from it.
  */
 export const PROVIDER_ORIGINS = [
+  `${LOCAL_ORIGIN}/*`,
   'https://api.anonalabs.com/*',
   'https://api.mem0.ai/*',
   'https://api.supermemory.ai/*',
@@ -122,7 +124,11 @@ export async function push(providerId, capture, config) {
       body: JSON.stringify(req.body),
     });
   } catch (err) {
-    // No status at all: DNS, offline, TLS, or a blocked host permission.
+    // No status at all: DNS, offline, TLS, or a blocked host permission. A
+    // provider that is a program on this machine can say something better than
+    // "could not reach", so it is asked first.
+    const own = provider.describeTransportError?.(err);
+    if (own) return { ...own, provider: provider.id, providerLabel: provider.label };
     return { ok: false, code: 'network', message: `Could not reach ${provider.label}. ${String(err.message ?? err)}` };
   }
 
