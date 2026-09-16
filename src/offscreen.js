@@ -62,7 +62,9 @@ const pool = createEnginePool({
 
 // Load progress belongs to whoever is waiting, and several jobs may be.
 const progressListeners = pool.listeners;
-const getEngine = (model) => pool.get(model);
+// Every path to the engine goes through here, so the request not to evict the
+// weights is made before the first byte of them is written, not after.
+const getEngine = async (model) => { persistStorage(); return pool.get(model); };
 const discardEngine = () => pool.discard();
 
 // ------------------------------------------------------------- prompting ----
@@ -76,6 +78,40 @@ const prompts = {
   reduce: (title, text) =>
     `These are section summaries of one article, in order. Write a single 4-6 sentence summary of the whole article. Do not refer to "sections" or to the summarising process.\n\nTitle: ${title}\n\n${text}`,
 };
+
+/**
+ * Asks the browser to stop treating 1.6GB of model weights as disposable.
+ *
+ * Without this the weights live in best-effort storage, which Chrome evicts
+ * under pressure, and a large cache is exactly what it reaches for first. The
+ * symptom is the model downloading again on a page it had already loaded for,
+ * which reads as "it never caches anything" and is the difference between a
+ * capture taking seconds and taking minutes.
+ *
+ * Asked once, and never awaited by anything on the capture path: a refusal is
+ * worth knowing about and is not a reason to fail to summarise. Chrome grants
+ * it to installed extensions without a prompt.
+ */
+let persisted = null;
+async function persistStorage() {
+  if (persisted !== null) return persisted;
+  try {
+    persisted = await navigator.storage.persisted() || await navigator.storage.persist();
+  } catch {
+    persisted = false;
+  }
+  return persisted;
+}
+
+/** How much the weights are actually taking, for somebody who wants to know. */
+async function storageEstimate() {
+  try {
+    const { usage = 0, quota = 0 } = await navigator.storage.estimate();
+    return { usage, quota };
+  } catch {
+    return { usage: 0, quota: 0 };
+  }
+}
 
 // One engine, one GPU, one request at a time, and always the engine that
 // exists when the request runs, never the one that existed when it was queued.
@@ -472,7 +508,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
         return { ok: true, ...pool.status() };
       }, respond);
     case MSG.ENGINE_STATUS:
-      return respondAsync(async () => ({ ...pool.status(), webgpu: Boolean(navigator.gpu) }), respond);
+      return respondAsync(async () => ({
+        ...pool.status(),
+        webgpu: Boolean(navigator.gpu),
+        persisted: await persistStorage(),
+        storage: await storageEstimate(),
+      }), respond);
     default:
       return false;
   }

@@ -19,10 +19,13 @@ Node 22.5 or newer, which is the only requirement: the database is Node's own
 `node:sqlite`, so there is nothing to compile and no platform-specific binary.
 
 ```bash
-npx magpie-local start      # in the background, which is where it belongs
+npm install -g magpie-local
+magpie-local install        # runs it now, and from every login onwards
 ```
 
-`serve` runs it in this terminal instead, if you would rather watch it.
+Or without installing anything permanent: `npx magpie-local start` runs it in
+the background until you reboot, and `npx magpie-local serve` runs it in the
+terminal where you can watch it.
 
 It prints a token the first time. Paste that into magpie: **Settings → This
 machine → Token**. It is in `~/.magpie/token` if you need it again, or run
@@ -39,7 +42,9 @@ claude mcp add magpie -- npx magpie-local mcp
 | | |
 |---|---|
 | `magpie-local` | what is in the store, and whether it is running |
-| `magpie-local start` | run it in the background |
+| `magpie-local install` | start it now, and with the computer from now on |
+| `magpie-local uninstall` | stop doing that |
+| `magpie-local start` | run it in the background until the next reboot |
 | `magpie-local stop` / `restart` | |
 | `magpie-local serve` | run it here, in the foreground |
 | `magpie-local search <query>` | search the store from the terminal |
@@ -55,7 +60,21 @@ It is read from your own file and printed on your own terminal. magpie has no
 telemetry: none of it is sent anywhere, by that command or by anything else.
 
 `start` writes a pid file and a log in `~/.magpie/`, and detaches, so closing
-the terminal does not take the store with it.
+the terminal does not take the store with it. It does not survive a reboot.
+
+`install` is the one that does. It writes your platform's own service file and
+enables it, so the store is running whenever you are logged in:
+
+| | |
+|---|---|
+| Linux | `~/.config/systemd/user/magpie-local.service`, enabled with `systemctl --user` |
+| macOS | `~/Library/LaunchAgents/com.anonalabs.magpie-local.plist`, loaded with `launchctl` |
+| Windows | a `.cmd` in the Startup folder |
+
+It prints the file it wrote and the commands it ran, so nothing happens to your
+machine that you cannot read first. `magpie-local uninstall` removes it. On
+Linux it starts at login and stops at logout; `loginctl enable-linger $USER`
+makes it run without you logged in at all.
 
 `serve` and `mcp` are separate processes on purpose. Claude starts the MCP one
 itself and owns its lifetime; `serve` runs while your browser does. They share

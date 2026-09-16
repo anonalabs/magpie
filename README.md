@@ -26,6 +26,10 @@ and **[Supermemory](https://supermemory.ai)**, or with
 **[no service at all](local/)**: `magpie-local` keeps your captures in a SQLite
 file on your own machine, searches them, and lets Claude read them over MCP.
 
+```bash
+npm install -g magpie-local && magpie-local install
+```
+
 ## Contents
 
 - [Quick start](#quick-start)

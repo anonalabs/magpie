@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.zip
+*.tgz
 .DS_Store
 
 # Vendored model libraries are committed on purpose (reproducible builds,

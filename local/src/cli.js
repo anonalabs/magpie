@@ -8,6 +8,8 @@
 //   magpie-local serve        run it in the foreground (logs here, ctrl-c stops)
 //   magpie-local mcp          speak MCP on stdio; Claude starts this itself
 //   magpie-local search <q>   search the store from here
+//   magpie-local install      start it with the computer, from now on
+//   magpie-local uninstall    stop doing that
 //   magpie-local token        print the token, for pasting into magpie
 //
 // This import comes first on purpose: it silences one warning, and it has to be
@@ -16,6 +18,7 @@ import './quiet.js';
 
 import { DB_PATH, DEFAULT_PORT, EMBED_MODEL, HOME, token, tokenExists } from './config.js';
 import { LOG_PATH, healthy, running, start, stop } from './daemon.js';
+import { install, installed, serviceFile, uninstall } from './service.js';
 import { open } from './db.js';
 import { backfillLoop, embed, embedIfReady, isReady } from './embed.js';
 import { createApi } from './http.js';
@@ -27,6 +30,24 @@ import {
 } from './ui.js';
 
 const VERSION = '0.1.0';
+
+/**
+ * How to run this copy: the node binary and this file, unless it was started
+ * through an installed `magpie-local` shim, in which case that is the stable
+ * thing to point a service at. A service pointing into a checkout that later
+ * moves is a service that silently stops working.
+ */
+function selfExec() {
+  const script = process.argv[1] ?? '';
+  return script.endsWith('cli.js')
+    ? { exec: process.execPath, args: [script, 'serve'] }
+    : { exec: script || 'magpie-local', args: ['serve'] };
+}
+
+function plan() {
+  const { exec, args } = selfExec();
+  return serviceFile({ platform: process.platform, exec, args, port: DEFAULT_PORT, logPath: LOG_PATH });
+}
 const [command = 'status', ...rest] = process.argv.slice(2);
 
 // stdout belongs to the MCP protocol when that is what is running, so anything
@@ -95,6 +116,9 @@ async function status() {
       ? `${green('yes')}  ${grey('started outside this command')}`
       : `${grey('no')}   ${dim('start it with `magpie-local start`')}`));
   if (health) out.push(row('listening', grey(`http://127.0.0.1:${DEFAULT_PORT}`)));
+  out.push(row('at login', installed()
+    ? `${green('yes')}  ${grey('it comes back on its own')}`
+    : `${grey('no')}   ${dim('`magpie-local install` starts it with the computer')}`));
   out.push(row('store', `${grey(DB_PATH)}  ${dim(bytes(s.diskBytes))}`));
 
   out.push(heading('  Stored'));
@@ -188,6 +212,8 @@ function help() {
     `  ${bold('magpie-local stop')}         ${grey('stop it')}`,
     `  ${bold('magpie-local restart')}      ${grey('stop it, start it')}`,
     `  ${bold('magpie-local serve')}        ${grey('run it here, in the foreground')}`,
+    `  ${bold('magpie-local install')}      ${grey('start it with the computer, from now on')}`,
+    `  ${bold('magpie-local uninstall')}    ${grey('stop doing that')}`,
     `  ${bold('magpie-local search')} ${dim('<q>')}   ${grey('search the store from this terminal')}`,
     `  ${bold('magpie-local mcp')}          ${grey('speak MCP on stdio; Claude starts this itself')}`,
     `  ${bold('magpie-local token')}        ${grey('print the token, for pasting into magpie')}`,
@@ -222,6 +248,32 @@ switch (command) {
     say(result.failed
       ? `  ${accent('it did not come back up')}. The log is ${grey(LOG_PATH)}`
       : `  ${green('restarted')} ${grey(`pid ${result.pid}`)}`);
+    break;
+  }
+
+  case 'install': {
+    const service = plan();
+    if (!service) { say(`  ${accent('no autostart for this platform')}: ${process.platform}`); process.exit(1); }
+
+    const result = install(service);
+    say(`  ${green('installed')} ${grey(result.path)}`);
+    for (const line of result.ran) say(grey(`  ran ${line}`));
+    if (result.failed) {
+      say(`  ${accent('but')} \`${result.failed}\` did not run: ${result.error}`);
+      say(grey('  The file is written; run that command yourself when you can.'));
+    }
+    say(grey(`  ${service.note}`));
+    const up = await healthy();
+    if (!up) say(grey('  Not answering yet; `magpie-local` will say when it is.'));
+    break;
+  }
+
+  case 'uninstall': {
+    const service = plan();
+    if (!service) { say(`  ${grey('nothing to remove on this platform')}`); break; }
+    const result = uninstall(service);
+    say(result.existed ? `  ${green('removed')} ${grey(result.path)}` : `  ${grey('it was not installed')}`);
+    for (const line of result.ran) say(grey(`  ran ${line}`));
     break;
   }
 
