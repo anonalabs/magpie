@@ -19,8 +19,10 @@ Node 22.5 or newer, which is the only requirement: the database is Node's own
 `node:sqlite`, so there is nothing to compile and no platform-specific binary.
 
 ```bash
-npx magpie-local serve
+npx magpie-local start      # in the background, which is where it belongs
 ```
+
+`serve` runs it in this terminal instead, if you would rather watch it.
 
 It prints a token the first time. Paste that into magpie: **Settings → This
 machine → Token**. It is in `~/.magpie/token` if you need it again, or run
@@ -31,6 +33,29 @@ Then let Claude read it:
 ```bash
 claude mcp add magpie -- npx magpie-local mcp
 ```
+
+## The commands
+
+| | |
+|---|---|
+| `magpie-local` | what is in the store, and whether it is running |
+| `magpie-local start` | run it in the background |
+| `magpie-local stop` / `restart` | |
+| `magpie-local serve` | run it here, in the foreground |
+| `magpie-local search <query>` | search the store from the terminal |
+| `magpie-local token` | print the token, for pasting into magpie |
+| `magpie-local mcp` | speak MCP on stdio; Claude starts this itself |
+
+`magpie-local` on its own is the one that answers everything: whether the
+service is up and for how long, how much is stored, how much of it is embedded,
+which spaces and what kinds of thing they came from, a fortnight of capture as a
+sparkline, and the newest thing you saved.
+
+It is read from your own file and printed on your own terminal. magpie has no
+telemetry: none of it is sent anywhere, by that command or by anything else.
+
+`start` writes a pid file and a log in `~/.magpie/`, and detaches, so closing
+the terminal does not take the store with it.
 
 `serve` and `mcp` are separate processes on purpose. Claude starts the MCP one
 itself and owns its lifetime; `serve` runs while your browser does. They share
@@ -87,7 +112,7 @@ Re-saving a page replaces it rather than storing it twice.
   token           the credential, mode 600
 ```
 
-`magpie-local stats` says what is in it. `sqlite3 ~/.magpie/memories.db` opens
+`magpie-local` says what is in it. `sqlite3 ~/.magpie/memories.db` opens
 it, because it is an ordinary SQLite file and it is yours.
 
 ## Security
