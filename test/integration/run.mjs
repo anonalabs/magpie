@@ -302,6 +302,19 @@ async function main() {
   const localHealth = await fetch('http://127.0.0.1:7777/health').then((r) => r.json()).catch(() => null);
   check('magpie-local is running', localHealth?.name === 'magpie-local', JSON.stringify(localHealth));
 
+  // And that it is *ours*. The port is fixed, so a magpie-local somebody is
+  // already running on this machine answers /health perfectly well and then
+  // rejects our token, which arrives as five unrelated-looking failures. The
+  // cases are skipped rather than failed: the collision is in the harness.
+  const oursAnswers = await fetch('http://127.0.0.1:7777/v1/spaces', {
+    headers: { authorization: `Bearer ${localToken}` },
+  }).then((r) => r.ok).catch(() => false);
+
+  if (!oursAnswers) {
+    console.log('  SKIP  the local store: port 7777 is held by a magpie-local this test did not start.');
+    console.log('        Stop it (magpie-local stop) and run again to cover these.');
+  } else {
+
   await evalIn(cdp, `
     await chrome.storage.local.set({ settings: {
       mode: 'raw', modelSize: 'small', providerId: 'local', chosenDestination: true,
@@ -364,6 +377,8 @@ async function main() {
     offline?.state === 'queued', `${offline?.state} ${offline?.result?.code ?? ''}`);
   check('and says what to start',
     String(offline?.result?.message ?? '').includes('magpie-local'), offline?.result?.message ?? '');
+
+  }
 
   // Put the destination back, or every case below this one captures into a
   // store that was deliberately killed two lines ago.

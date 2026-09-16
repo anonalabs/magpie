@@ -103,7 +103,7 @@ Three things, and only one of them grows:
 |---|---|---|
 | Settings and your API key | `chrome.storage.local` | under a kilobyte |
 | Capture history | `chrome.storage.local` | ~600 bytes per capture, 200 kept, so ~115 KB at the cap |
-| Model weights | the browser's cache, written by WebLLM | 711 MB to 2.3 GB, once per model |
+| Model weights | the browser's cache, written by WebLLM | 945 MB to 2.3 GB, once per model |
 
 **A landed capture keeps its metadata and loses its text.** Title, URL, time,
 destination, how many characters were sent: that is the whole record, and it is
@@ -249,7 +249,7 @@ event, because Chrome truncates the copy it puts there.
 
 | Model | Video memory | Context | For |
 |---|---|---|---|
-| Gemma 3 1B | 711 MB | 4,096 | integrated graphics |
+| Qwen2.5 0.5B | 945 MB | 4,096 | integrated graphics |
 | Qwen 2.5 1.5B | 1,630 MB | 4,096 | a good default |
 | Llama 3.2 3B | 2,264 MB | 4,096 | best summaries |
 

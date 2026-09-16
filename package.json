@@ -19,7 +19,8 @@
     "package": "npm run build && node scripts/package.mjs",
     "shot": "node scripts/screenshot.mjs",
     "deploy:site": "npx wrangler deploy",
-    "shots": "node scripts/readme-shots.mjs"
+    "shots": "node scripts/readme-shots.mjs",
+    "check:models": "node scripts/check-models.mjs"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.79",
