@@ -410,3 +410,15 @@ describe('the local store', () => {
     expect(PROVIDERS.local.maxContentChars).toBeNull();
   });
 });
+
+describe('a destination this build does not have', () => {
+  it('says what to do, rather than naming an internal lookup', () => {
+    let thrown = null;
+    try { getProvider('something-from-a-newer-build'); } catch (err) { thrown = err; }
+
+    expect(thrown.code).toBe('unknown_provider');
+    expect(thrown.message).toContain('chrome://extensions');
+    // the name is in the message, so a bug report carries it
+    expect(thrown.message).toContain('something-from-a-newer-build');
+  });
+});

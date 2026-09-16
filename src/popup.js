@@ -886,6 +886,18 @@ async function renderShortcut() {
 
   settings = await loadSettings();
 
+  // A destination this build does not have would throw out of the first render
+  // and leave a dead panel with no way back. Say it, and offer the way out.
+  if (!PROVIDERS[settings.providerId]) {
+    renderJob({
+      ok: false,
+      code: 'unknown_provider',
+      message: `This build of magpie has no destination called "${settings.providerId}". `
+        + 'Reload the extension at chrome://extensions, then open this again.',
+    });
+    return;
+  }
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   tabId = tab?.id ?? null;
   tabUrl = tab?.url ?? '';

@@ -20,7 +20,17 @@ export const PROVIDER_ORIGINS = [
 
 export function getProvider(id) {
   const provider = PROVIDERS[id];
-  if (!provider) throw new Error(`unknown provider: ${id}`);
+  if (!provider) {
+    // Almost always a stale load rather than a bad setting: a popup page is
+    // re-read from disk every time it opens, while the service worker keeps
+    // running old code and Chrome keeps the old manifest until the extension is
+    // reloaded. So a new destination can be chosen in the popup and then be
+    // unknown to the worker that has to write to it.
+    const err = new Error(`This build of magpie has no destination called "${id}". `
+      + 'Reload the extension at chrome://extensions, then try again.');
+    err.code = 'unknown_provider';
+    throw err;
+  }
   return provider;
 }
 
