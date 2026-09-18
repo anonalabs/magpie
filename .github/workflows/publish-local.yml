@@ -94,7 +94,8 @@ jobs:
       # one line: a token for the wrong account, or one scoped to selected
       # packages, cannot create a new name in the scope.
       - name: Who is publishing
-        run: npm whoami || echo "not authenticated: OIDC will be tried, and a new package cannot be created that way"
+        run: |
+          npm whoami || echo "not authenticated as anyone, so OIDC is the only path, and that cannot create a package that does not exist yet"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
