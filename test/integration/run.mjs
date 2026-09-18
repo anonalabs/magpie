@@ -158,6 +158,9 @@ const chrome = spawn(CHROME, [
   // a current Chrome is what found it. Unknown feature names are ignored, so
   // this is inert on the older build.
   '--disable-features=DisableLoadExtensionCommandLineSwitch',
+  // Newer Chrome also gates extension work over CDP behind this. Unknown
+  // switches are ignored, so it costs nothing where it is not required.
+  '--enable-unsafe-extension-debugging',
   `--host-resolver-rules=MAP api.anonalabs.com 127.0.0.1:${PORT_API}, MAP docs.google.com 127.0.0.1:${PORT_DOCS}`,
   '--ignore-certificate-errors',
   '--no-first-run', '--no-default-browser-check', 'about:blank',
@@ -217,8 +220,11 @@ async function waitFor(fn, what, tries = 80) {
     console.error(`\n  timed out waiting for ${what}, and /json/list is not answering: ${err.message}`);
   }
   if (chromeSaid.length) {
-    console.error('  Chrome said:');
-    for (const line of chromeSaid.slice(-12)) console.error(`    ${line}`);
+    const aboutUs = chromeSaid.filter((line) => /extension|manifest|service worker/i.test(line));
+    console.error(`  Chrome said (${chromeSaid.length} lines, the ones about extensions first):`);
+    for (const line of aboutUs.slice(0, 8)) console.error(`    ! ${line}`);
+    if (!aboutUs.length) console.error('    (nothing about extensions at all)');
+    for (const line of chromeSaid.slice(-6)) console.error(`      ${line}`);
   }
   throw new Error(`timed out waiting for ${what}`);
 }
