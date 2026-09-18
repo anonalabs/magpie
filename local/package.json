@@ -1,5 +1,5 @@
 {
-  "name": "magpie-local",
+  "name": "@anona-labs/magpie-local",
   "version": "0.1.0",
   "description": "A local memory store for magpie: your captures on your own machine, searchable, and readable by Claude over MCP.",
   "license": "MIT",
@@ -34,5 +34,18 @@
   },
   "devDependencies": {
     "vitest": "^3.2.4"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/anonalabs/magpie/tree/main/local",
+  "keywords": [
+    "mcp",
+    "claude",
+    "memory",
+    "sqlite",
+    "local-first",
+    "magpie",
+    "rag"
+  ]
 }

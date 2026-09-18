@@ -27,7 +27,7 @@ and **[Supermemory](https://supermemory.ai)**, or with
 file on your own machine, searches them, and lets Claude read them over MCP.
 
 ```bash
-npm install -g magpie-local && magpie-local install
+npm install -g @anona-labs/magpie-local && magpie-local install
 ```
 
 ## Contents

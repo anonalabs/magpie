@@ -80,7 +80,7 @@ async function serve() {
       say(grey('  It is in ~/.magpie/token if you need it again.'));
     }
     say('');
-    say(grey('  Let Claude read it:  ') + `claude mcp add magpie -- npx magpie-local mcp`);
+    say(grey('  Let Claude read it:  ') + `claude mcp add --scope user magpie -- magpie-local mcp`);
     say(grey('  Stop with ctrl-c, or run it in the background with `magpie-local start`.'));
     say('');
   });
@@ -148,7 +148,7 @@ async function status() {
   }
 
   out.push(heading('  Reading it'));
-  out.push(row('claude', `claude mcp add magpie -- npx magpie-local mcp`));
+  out.push(row('claude', `claude mcp add --scope user magpie -- magpie-local mcp`));
   out.push(row('here', `magpie-local search ${dim('"what you are looking for"')}`));
   out.push(row('token', grey(`${HOME}/token`)));
   out.push(row('model', grey(s.model)));

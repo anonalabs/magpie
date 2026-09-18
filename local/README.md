@@ -19,13 +19,14 @@ Node 22.5 or newer, which is the only requirement: the database is Node's own
 `node:sqlite`, so there is nothing to compile and no platform-specific binary.
 
 ```bash
-npm install -g magpie-local
+npm install -g @anona-labs/magpie-local
 magpie-local install        # runs it now, and from every login onwards
 ```
 
-Or without installing anything permanent: `npx magpie-local start` runs it in
-the background until you reboot, and `npx magpie-local serve` runs it in the
-terminal where you can watch it.
+The package is scoped; the command it installs is not. Or without installing
+anything permanent: `npx @anona-labs/magpie-local start` runs it in the
+background until you reboot, and `... serve` runs it in the terminal where you
+can watch it.
 
 It prints a token the first time. Paste that into magpie: **Settings → This
 machine → Token**. It is in `~/.magpie/token` if you need it again, or run
@@ -34,8 +35,11 @@ machine → Token**. It is in `~/.magpie/token` if you need it again, or run
 Then let Claude read it:
 
 ```bash
-claude mcp add magpie -- npx magpie-local mcp
+claude mcp add --scope user magpie -- magpie-local mcp
 ```
+
+`--scope user` matters: the default is `local`, which registers the server for
+the directory you happened to be in and nowhere else.
 
 ## The commands
 
@@ -50,6 +54,10 @@ claude mcp add magpie -- npx magpie-local mcp
 | `magpie-local search <query>` | search the store from the terminal |
 | `magpie-local token` | print the token, for pasting into magpie |
 | `magpie-local mcp` | speak MCP on stdio; Claude starts this itself |
+
+Published as **`@anona-labs/magpie-local`**. `anona` on npm is somebody else's
+package; Anona Labs' own packages are the `@anona-labs` scope on npm and
+`anona` on PyPI.
 
 `magpie-local` on its own is the one that answers everything: whether the
 service is up and for how long, how much is stored, how much of it is embedded,
