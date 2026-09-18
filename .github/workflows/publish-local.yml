@@ -1,11 +1,21 @@
 name: Publish magpie-local
 
-# Tag `local-v0.1.0` and push it. The extension has its own tag shape, so one
-# repository can release two things without either of them going out by
-# accident when the other does.
+# Publishes local/ as @anona-labs/magpie-local.
+#
+# Two ways in, both guarded on the tag so the extension's own `vX.Y.Z` tags
+# never reach this workflow:
+#
+#   - push a tag `local-v0.1.0`, or publish a release with that tag;
+#   - run it by hand, which defaults to packing and checking without shipping.
+#
+# Shaped after anonalabs/Anona-Memory-SDK's publish-npm.yml, deliberately: the
+# auth story below was worked out there and there is no reason for two Anona
+# packages to reach npm in two different ways.
 on:
   push:
     tags: ['local-v*']
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       dry_run:
@@ -15,46 +25,79 @@ on:
 
 permissions:
   contents: read
-  id-token: write     # npm provenance: proves the tarball came from this workflow
 
 jobs:
   publish:
+    # A release for the extension would otherwise publish the daemon at
+    # whatever version happened to be committed.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref_name, 'local-v')
     runs-on: ubuntu-latest
+    environment: npm
+
+    # Two auth paths, in this order:
+    #
+    #  1. Trusted Publishing (OIDC). Nothing is stored anywhere, and it is what
+    #     a second repository should use rather than being handed a copy of the
+    #     SDK's token. It can only be configured on a package that already
+    #     exists, so it cannot do the first publish.
+    #  2. An NPM_TOKEN secret: a granular token scoped to @anona-labs with
+    #     "bypass 2FA". Needed for v0.1.0, and deletable once (1) is set up.
+    #
+    # npm prefers OIDC whenever a trusted publisher matches this workflow.
+    # `id-token: write` is also what signs the provenance attestation.
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           registry-url: https://registry.npmjs.org
           cache: npm
 
+      # Trusted publishing needs npm >= 11.5.1; the npm bundled with Node 22 is
+      # older and would fall back to asking for a token that may not exist.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
+      # Only the root install: the daemon's own dependencies are an inference
+      # runtime and no test imports it.
       - run: npm ci
-      - name: tests must pass before anything is published
+
+      - name: Tests must pass before anything is published
         run: npm test
 
-      # The daemon carries a copy of the extension's chunker because npm cannot
-      # package a file from outside the package. If the copy has drifted, the
-      # published package behaves differently from the repository it claims to
-      # be, so this refuses rather than shipping it.
-      - name: the vendored copy is current
+      # The daemon carries a copy of the extension's chunker, because npm cannot
+      # package a file from outside the package directory. A stale copy means
+      # the published package behaves differently from the repository it names.
+      - name: The vendored copy is current
         run: |
           node local/scripts/sync-lib.mjs
           git diff --exit-code local/src/chunk.js
 
-      - name: the tag matches the version being published
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Tag matches package version
+        if: github.event_name != 'workflow_dispatch'
         run: |
+          pkg=$(node -p "require('./local/package.json').version")
           tag="${GITHUB_REF_NAME#local-v}"
-          pkg="$(node -p "require('./local/package.json').version")"
-          echo "tag $tag, package $pkg"
-          [ "$tag" = "$pkg" ] || { echo "::error::tag and package.json disagree"; exit 1; }
+          if [ "$pkg" != "$tag" ]; then
+            echo "package.json is $pkg but the tag says $tag" >&2
+            exit 1
+          fi
 
-      - name: what would be published
+      - name: Pack (dry run)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
         working-directory: local
-        run: npm pack --dry-run
+        run: npm publish --dry-run --access public
 
-      - name: publish
-        if: ${{ github.event_name == 'push' || inputs.dry_run == false }}
+      # NODE_AUTH_TOKEN is picked up through the .npmrc setup-node wrote. When
+      # the secret is unset it resolves to an empty string, which npm ignores,
+      # and the OIDC path takes over.
+      - name: Publish
+        if: github.event_name != 'workflow_dispatch' || !inputs.dry_run
         working-directory: local
         run: npm publish --provenance --access public
         env:

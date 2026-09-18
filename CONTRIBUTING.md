@@ -94,10 +94,36 @@ on a diff: the daemon carries a copy of the extension's chunker, and a stale
 copy would mean the published package behaves differently from the repository
 it names.
 
-`npm publish` needs an **`NPM_TOKEN`** repository secret: an npm automation
-token with publish rights on the `@anona-labs` scope. Provenance needs nothing
-else, since the workflow already asks for `id-token: write` and this repository
-is public.
+### Getting npm to accept the publish
+
+Two paths, in the order the workflow tries them, and the same two the SDK's
+`publish-npm.yml` uses:
+
+1. **Trusted Publishing (OIDC).** Nothing is stored anywhere: npm verifies the
+   workflow itself. This is what a second repository should use rather than
+   being handed a copy of the SDK's token. It can only be configured on a
+   package that already exists, so it cannot do the first publish.
+2. **An `NPM_TOKEN` repository secret**, a granular token scoped to
+   `@anona-labs` with "bypass 2FA". Needed for the first version, and
+   deletable once (1) is set up.
+
+The SDK's token cannot be shared: a GitHub secret is write-only, so no
+workflow in another repository can read it. It is a repository secret on
+`anonalabs/Anona-Memory-SDK`, not an organisation one. To use one token for
+both, promote it to the org and grant it to both repositories:
+
+```bash
+gh secret set NPM_TOKEN --org anonalabs --visibility selected \
+  --repos "Anona-Memory-SDK,magpie"
+```
+
+Better for this package: mint a granular token that can publish
+`@anona-labs/magpie-local` and nothing else, so a compromised workflow here
+cannot publish the SDK. Then, after the first release, configure a trusted
+publisher on npm pointing at `publish-local.yml` and delete the token.
+
+The workflow also uses the `npm` environment, so whatever protection rules the
+org puts on releases apply here too.
 
 `workflow_dispatch` on the publish workflow defaults to a dry run, so the
 packing and the checks can be exercised without shipping anything.
