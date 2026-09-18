@@ -419,6 +419,23 @@
   }
   /* A sentence or two under a heading, held to a measure so it reads as prose
      rather than running the width of the page. */
+  /* The local pipeline, drawn once, because four boxes explain it and three
+     paragraphs do not. */
+  .pipeline { margin: 26px 0 22px; }
+  .pipeline svg { width: 100%; height: auto; display: block; }
+  .pl-box { fill: var(--sheet); stroke: var(--line); stroke-width: 1; }
+  .pl-store { fill: var(--red-tint); stroke: var(--red); }
+  .pl-read { fill: var(--sheet-2); }
+  .pl-title { fill: var(--ink); font-family: var(--body); font-size: 13px; font-weight: 600; text-anchor: middle; }
+  .pl-line { fill: var(--muted); font-family: var(--body); font-size: 11px; text-anchor: middle; }
+  .pl-foot { fill: var(--faint); font-family: var(--mono); font-size: 9.5px; text-anchor: middle; }
+  .pl-note { fill: var(--faint); font-family: var(--mono); font-size: 9.5px; text-anchor: middle; }
+  .pl-arrow { stroke: var(--line-strong); stroke-width: 1.5; fill: none; marker-end: url(#pl-head); }
+  .pl-back { stroke: var(--red); stroke-dasharray: 4 3; marker-end: url(#pl-head-red); }
+  .pl-note-red { fill: var(--red-text); }
+  .pipeline figcaption {
+    font-size: .8125rem; color: var(--muted); margin-top: 10px; max-width: 46rem;
+  }
   .lede-sm {
     font-size: 1rem; line-height: 1.6; color: var(--muted);
     max-width: 46rem; margin: 0 0 22px;
@@ -977,6 +994,57 @@
         <p>In the popup choose <b>This machine</b> and paste the token it printed.</p>
       </div></div>
     </div>
+    <figure class="pipeline" aria-labelledby="pipeline-caption">
+      <svg viewBox="0 0 760 196" role="img"
+           aria-label="magpie reads the page and summarises it on your GPU, posts it to magpie-local on 127.0.0.1, which chunks and embeds it into one SQLite file. The popup and Claude both read that file back.">
+        <defs>
+          <marker id="pl-head" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M0 0 L8 4 L0 8 z" fill="var(--line-strong)"/>
+          </marker>
+          <marker id="pl-head-red" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M0 0 L8 4 L0 8 z" fill="var(--red)"/>
+          </marker>
+        </defs>
+
+        <rect class="pl-box" x="6" y="20" width="156" height="96" rx="8"/>
+        <text class="pl-title" x="84" y="46">magpie</text>
+        <text class="pl-line" x="84" y="66">reads the page</text>
+        <text class="pl-line" x="84" y="82">your GPU summarises it</text>
+        <text class="pl-foot" x="84" y="102">in the browser</text>
+
+        <path class="pl-arrow" d="M166 68 H206"/>
+        <text class="pl-note" x="186" y="60">POST</text>
+
+        <rect class="pl-box" x="210" y="20" width="176" height="96" rx="8"/>
+        <text class="pl-title" x="298" y="46">magpie-local</text>
+        <text class="pl-line" x="298" y="66">chunks the text</text>
+        <text class="pl-line" x="298" y="82">embeds it on your CPU</text>
+        <text class="pl-foot" x="298" y="102">127.0.0.1, never the network</text>
+
+        <path class="pl-arrow" d="M390 68 H430"/>
+
+        <rect class="pl-box pl-store" x="434" y="20" width="164" height="96" rx="8"/>
+        <text class="pl-title" x="516" y="46">memories.db</text>
+        <text class="pl-line" x="516" y="66">full text and summary</text>
+        <text class="pl-line" x="516" y="82">text index and vectors</text>
+        <text class="pl-foot" x="516" y="102">one file, yours</text>
+
+        <path class="pl-arrow" d="M602 68 H642"/>
+
+        <rect class="pl-box pl-read" x="646" y="20" width="108" height="96" rx="8"/>
+        <text class="pl-title" x="700" y="46">Claude</text>
+        <text class="pl-line" x="700" y="66">over MCP</text>
+        <text class="pl-foot" x="700" y="102">read-only</text>
+
+        <!-- and the same file, read back in the popup -->
+        <path class="pl-arrow pl-back" d="M470 120 V154 H84 V122"/>
+        <text class="pl-note pl-note-red" x="280" y="172">the popup searches the same file</text>
+      </svg>
+      <figcaption id="pipeline-caption">Nothing in that row leaves the machine: not the page, not the
+        summary, not the question you search it with. The only thing that ever touches the network is the
+        model, downloaded once.</figcaption>
+    </figure>
+
     <div class="leaves">
       <div class="leaf">
         <div class="leaf-head"><span class="leaf-name">What it keeps</span></div>
