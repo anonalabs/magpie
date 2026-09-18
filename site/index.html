@@ -1,6 +1,8 @@
 <meta charset="utf-8">
 <title>magpie</title>
 <meta name="description" content="Summarise any page on your own GPU, and send only the summary to your memory layer.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="mask-icon" href="/favicon.svg" color="#e7413c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -415,6 +417,12 @@
     background: var(--paper); border: 1px solid var(--line); border-radius: 7px;
     padding: 11px; color: var(--ink);
   }
+  /* A sentence or two under a heading, held to a measure so it reads as prose
+     rather than running the width of the page. */
+  .lede-sm {
+    font-size: 1rem; line-height: 1.6; color: var(--muted);
+    max-width: 46rem; margin: 0 0 22px;
+  }
   .leaf-note { font-size: .8125rem; color: var(--muted); }
   .leaf-note b { color: var(--red-text); font-family: var(--mono); font-weight: 500; }
 
@@ -642,7 +650,7 @@
       </a>
     </div>
     <p class="note">Adding another is one file. No telemetry, and no magpie server. Your key goes straight from the browser to whichever you chose.</p>
-    <p class="note">Or none of them: <a href="https://github.com/anonalabs/magpie/tree/main/local" target="_blank" rel="noreferrer noopener">magpie-local</a> keeps everything in a file on your own machine, searchable from the extension and readable by Claude over MCP. No account, no key, no network.</p>
+    <p class="note">Or none of them: <a href="#local">keep it on this machine</a>. No account, no key, no network.</p>
   </section>
 </div></div>
 
@@ -945,6 +953,48 @@
 </div></div>
 
 <div class="bleed"><div class="wrap">
+  <section id="local">
+    <div class="section-head">
+      <span class="eyebrow">Or no service at all</span>
+      <h2>Keep it on this machine.</h2>
+    </div>
+    <p class="lede-sm">magpie-local is a small program that holds your captures in a SQLite file
+      on your own computer, searches them, and lets Claude read them over MCP. There is no account
+      to make and nothing leaves the machine.</p>
+    <div class="steps">
+      <div class="step"><div>
+        <b>Install it</b>
+        <p><code>npm install -g @anona-labs/magpie-local</code></p>
+        <p><code>magpie-local install</code> starts it now, and with every login after.</p>
+      </div></div>
+      <div class="step"><div>
+        <b>Let Claude read it</b>
+        <p><code>claude mcp add --scope user magpie -- magpie-local mcp</code></p>
+        <p>Three read-only tools: search what you saved, open one page, list what is recent.</p>
+      </div></div>
+      <div class="step"><div>
+        <b>Point magpie at it</b>
+        <p>In the popup choose <b>This machine</b> and paste the token it printed.</p>
+      </div></div>
+    </div>
+    <div class="leaves">
+      <div class="leaf">
+        <div class="leaf-head"><span class="leaf-name">What it keeps</span></div>
+        <p class="leaf-note">The page, its summary and the <b>full text</b>. A memory layer is billed
+          on what it extracts, so magpie sends it a summary; a file on your own disk has no bill, so the
+          source is kept and indexed.</p>
+      </div>
+      <div class="leaf">
+        <div class="leaf-head"><span class="leaf-name">How it searches</span></div>
+        <p class="leaf-note">Keyword and meaning together: SQLite&rsquo;s own text index and a small
+          embedding model running on your CPU, fused into one ranking. Every result says which of the
+          two found it.</p>
+      </div>
+    </div>
+    <p class="note">One machine, no sync, no sharing. It finds what you saved; it does not reason across
+      it. That is what a memory layer is for, and you can change your mind later without losing anything.</p>
+  </section>
+
   <section id="install">
     <div class="section-head">
       <span class="eyebrow">Install</span>
