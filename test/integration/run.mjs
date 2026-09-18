@@ -217,10 +217,33 @@ async function main() {
   const browser = connect(version.webSocketDebuggerUrl);
   await browser.ready;
 
+  // Ask each service worker which extension it belongs to, rather than taking
+  // the first one whose script is called background.js.
+  //
+  // Chrome ships component extensions of its own, and by Chrome 152 three of
+  // them have service workers: "Google Hangouts" on thunk.js, and one named
+  // "google.com" on **background.js**, the same filename this used to match.
+  // `--disable-extensions-except` does not exclude them. So the harness drove
+  // Google's popup instead of magpie's and waited for a UI that was never
+  // going to appear, which is what CI found on a current Chrome while the
+  // Chrome on this laptop, two years older, had no such extensions to collide
+  // with.
   const extId = await waitFor(async () => {
-    const t = (await http('/json/list')).find((t) => t.type === 'service_worker' && t.url.endsWith('/background.js'));
-    return t ? new URL(t.url).host : null;
-  }, 'the extension service worker');
+    const workers = (await http('/json/list')).filter((t) => t.type === 'service_worker');
+    for (const worker of workers) {
+      if (!worker.webSocketDebuggerUrl) continue;
+      try {
+        const c = connect(worker.webSocketDebuggerUrl);
+        await c.ready;
+        const { result } = await c.send('Runtime.evaluate', {
+          expression: 'chrome.runtime.getManifest().name', returnByValue: true,
+        });
+        // This connect() resolves to CDP's `result`, so the value is one level up.
+        if (result?.value === 'magpie') return new URL(worker.url).host;
+      } catch { /* a worker that will not answer is not ours */ }
+    }
+    return null;
+  }, 'magpie\'s service worker');
   check('extension loads', true, extId);
 
   // Open the popup as a page: it has the same extension APIs, so it can drive
