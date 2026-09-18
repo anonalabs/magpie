@@ -29,7 +29,15 @@ export function pipe({ model = EMBED_MODEL } = {}) {
     const extractor = await pipeline('feature-extraction', model, { dtype: 'fp32' });
     ready = true;
     return extractor;
-  })();
+  })().catch((err) => {
+    // Forget the failure rather than memoising it: a model that would not load
+    // because the machine was offline, or because the package was installed
+    // without its dependencies, should be retried later rather than being
+    // treated as permanently broken for the life of the process.
+    loading = null;
+    ready = false;
+    throw err;
+  });
   return loading;
 }
 
@@ -45,7 +53,14 @@ export const isReady = () => ready;
  * half starts appearing on its own once the download finishes.
  */
 export async function embedIfReady(text, options = {}) {
-  if (!ready) { pipe(options); return null; }
+  if (!ready) {
+    // Start it, and swallow the failure *here*. Nobody is awaiting this
+    // promise, and in Node an unhandled rejection takes the process down: a
+    // model that will not load would kill the store on the first search
+    // instead of costing that one search its semantic half.
+    pipe(options).catch(() => {});
+    return null;
+  }
   return embed(text, options);
 }
 

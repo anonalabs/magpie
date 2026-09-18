@@ -12,7 +12,7 @@
 import { spawn, execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { createServer as createHttps } from 'node:https';
-import { mkdtempSync, readFileSync, writeFileSync, cpSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, cpSync, rmSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -79,6 +79,10 @@ const localStore = spawn(process.execPath, [join(ROOT, 'local/src/cli.js'), 'ser
   env: { ...process.env, MAGPIE_HOME: LOCAL_HOME, MAGPIE_PORT: '7777' },
   stdio: ['ignore', 'ignore', 'pipe'],
 });
+// If it dies on startup, its own complaint is the only thing that explains the
+// missing token file the tests would otherwise trip over.
+const localSaid = [];
+localStore.stderr.on('data', (d) => { for (const l of String(d).split('\n')) if (l.trim()) localSaid.push(l.trim()); });
 let localToken = null;
 
 const PDFS = { '/short.pdf': makePdf(3), '/long.pdf': makePdf(45) };
@@ -363,7 +367,14 @@ async function main() {
   // The daemon is the real one, started at the top of this file. What is being
   // tested is the contract between two programs written in the same week, which
   // is exactly the pair most likely to agree with each other and with nothing.
-  localToken = readFileSync(join(LOCAL_HOME, 'token'), 'utf8').trim();
+  const tokenPath = join(LOCAL_HOME, 'token');
+  await waitFor(async () => existsSync(tokenPath) || null, 'magpie-local to write its token', 40)
+    .catch(() => {
+      console.error('  magpie-local never started. It said:');
+      for (const line of localSaid.slice(0, 12)) console.error(`    ${line}`);
+      throw new Error('magpie-local did not start');
+    });
+  localToken = readFileSync(tokenPath, 'utf8').trim();
   const localHealth = await fetch('http://127.0.0.1:7777/health').then((r) => r.json()).catch(() => null);
   check('magpie-local is running', localHealth?.name === 'magpie-local', JSON.stringify(localHealth));
 

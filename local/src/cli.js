@@ -22,7 +22,6 @@ import { install, installed, serviceFile, uninstall } from './service.js';
 import { open } from './db.js';
 import { backfillLoop, embed, embedIfReady, isReady } from './embed.js';
 import { createApi } from './http.js';
-import { serveStdio } from './mcp.js';
 import { search } from './search.js';
 import { report } from './stats.js';
 import {
@@ -282,6 +281,12 @@ switch (command) {
   case 'token': console.log(token()); break;
 
   case 'mcp': {
+    // Imported here rather than at the top: the MCP SDK and zod are only needed
+    // by this one command, and loading them for `serve` means the store cannot
+    // run anywhere they are not installed. That is not hypothetical, it is
+    // what happens in CI, where only the root dependencies are installed and
+    // the daemon died on startup with no explanation.
+    const { serveStdio } = await import('./mcp.js');
     const db = open();
     await serveStdio({ db, embed: embedIfReady, version: VERSION });
     say(`magpie-local ${VERSION} speaking MCP on stdio (${DB_PATH})`);
