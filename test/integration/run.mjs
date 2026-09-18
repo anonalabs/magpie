@@ -163,6 +163,11 @@ const chrome = spawn(CHROME, [
   '--no-first-run', '--no-default-browser-check', 'about:blank',
 ], { stdio: ['ignore', 'ignore', 'pipe'] });
 
+const chromeSaid = [];
+chrome.stderr.on('data', (d) => {
+  for (const line of String(d).split('\n')) if (line.trim()) chromeSaid.push(line.trim());
+});
+
 function shutdown(code) {
   try { chrome.kill('SIGKILL'); } catch {}
   api.close(); web.close(); docs.close();
@@ -199,6 +204,22 @@ function connect(wsUrl) {
 
 async function waitFor(fn, what, tries = 80) {
   for (let i = 0; i < tries; i++) { const v = await fn(); if (v) return v; await sleep(400); }
+
+  // Say what was actually there. A bare timeout costs a round trip to whoever
+  // owns the machine it happened on, and the two things that explain nearly all
+  // of them are the target list and whatever Chrome muttered on the way up.
+  try {
+    const targets = await http('/json/list');
+    console.error(`\n  timed out waiting for ${what}. Targets Chrome is showing:`);
+    for (const target of targets) console.error(`    ${String(target.type).padEnd(16)} ${target.url}`);
+    if (!targets.length) console.error('    (none at all)');
+  } catch (err) {
+    console.error(`\n  timed out waiting for ${what}, and /json/list is not answering: ${err.message}`);
+  }
+  if (chromeSaid.length) {
+    console.error('  Chrome said:');
+    for (const line of chromeSaid.slice(-12)) console.error(`    ${line}`);
+  }
   throw new Error(`timed out waiting for ${what}`);
 }
 
