@@ -43,12 +43,24 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      # Chrome ships in the runner image, so no third-party action is pulled in
-      # to install one. The harness takes the path rather than hardcoding it.
-      - name: what Chrome are we testing against
-        run: google-chrome --version
+      # Chrome for Testing, pinned, rather than whatever the runner image ships.
+      #
+      # The runner's own Chrome would not load an unpacked extension at all: no
+      # service worker, and not a word on stderr about why. That is an
+      # uncontrolled variable in the one suite whose whole job is to be the
+      # thing that runs a real browser, and a version anybody can reproduce
+      # beats a version that happens to be installed. Downloaded with curl so
+      # no third-party action joins the supply chain of a project whose point
+      # is that it does not fetch code it has not vendored.
+      - name: Chrome for Testing
+        run: |
+          version="153.0.8010.52"
+          url="https://storage.googleapis.com/chrome-for-testing-public/${version}/linux64/chrome-linux64.zip"
+          curl -fsSL -o /tmp/chrome.zip "$url"
+          unzip -q /tmp/chrome.zip -d /tmp/chrome
+          /tmp/chrome/chrome-linux64/chrome --version
 
       - name: end to end
         run: npm run test:e2e
         env:
-          CHROME_PATH: /usr/bin/google-chrome
+          CHROME_PATH: /tmp/chrome/chrome-linux64/chrome
