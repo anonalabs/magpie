@@ -88,6 +88,16 @@ jobs:
             exit 1
           fi
 
+      # A 404 on publishing a package that does not exist yet is npm saying the
+      # credential cannot create it, which reads as "not found" and sends people
+      # looking for the wrong problem. Knowing who the token is answers it in
+      # one line: a token for the wrong account, or one scoped to selected
+      # packages, cannot create a new name in the scope.
+      - name: Who is publishing
+        run: npm whoami || echo "not authenticated: OIDC will be tried, and a new package cannot be created that way"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Pack (dry run)
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
         working-directory: local
