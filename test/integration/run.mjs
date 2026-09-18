@@ -163,7 +163,13 @@ const chrome = spawn(CHROME, [
   '--enable-unsafe-extension-debugging',
   `--host-resolver-rules=MAP api.anonalabs.com 127.0.0.1:${PORT_API}, MAP docs.google.com 127.0.0.1:${PORT_DOCS}`,
   '--ignore-certificate-errors',
-  '--no-first-run', '--no-default-browser-check', 'about:blank',
+  '--no-first-run', '--no-default-browser-check',
+  // Chrome for Testing ships no SUID sandbox helper, and a CI container has no
+  // user namespaces to fall back on, so it exits before it opens a port: the
+  // symptom is /json/list never answering at all. Only on CI, because on a
+  // desktop the sandbox is both present and worth keeping.
+  ...(process.env.CI ? ['--no-sandbox', '--disable-dev-shm-usage'] : []),
+  'about:blank',
 ], { stdio: ['ignore', 'ignore', 'pipe'] });
 
 const chromeSaid = [];
