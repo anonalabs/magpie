@@ -28,6 +28,7 @@ const profile = mkdtempSync(join(tmpdir(), 'magpie-shot-'));
 
 const chrome = spawn((process.env.CHROME_PATH ?? '/usr/bin/google-chrome'), [
   '--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
+  '--disable-features=DisableLoadExtensionCommandLineSwitch',
   `--load-extension=${DIST}`, `--disable-extensions-except=${DIST}`,
   '--no-first-run', '--hide-scrollbars', 'about:blank',
 ], { stdio: 'ignore' });

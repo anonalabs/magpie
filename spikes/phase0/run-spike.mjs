@@ -24,6 +24,7 @@ const chrome = spawn((process.env.CHROME_PATH ?? '/usr/bin/google-chrome'), [
   HEADFUL ? '--no-sandbox' : '--headless=new',
   `--remote-debugging-port=${PORT}`,
   `--user-data-dir=${profile}`,
+  '--disable-features=DisableLoadExtensionCommandLineSwitch',
   `--load-extension=${resolve(HERE)}`,
   `--disable-extensions-except=${resolve(HERE)}`,
   '--no-first-run', '--no-default-browser-check', '--disable-background-timer-throttling',

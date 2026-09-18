@@ -151,6 +151,13 @@ const profile = mkdtempSync(join(tmpdir(), 'magpie-profile-'));
 const chrome = spawn(CHROME, [
   '--headless=new', `--remote-debugging-port=${PORT_CDP}`, `--user-data-dir=${profile}`,
   `--load-extension=${EXT}`, `--disable-extensions-except=${EXT}`,
+  // Chrome 137 turned --load-extension off by default: the switch is still
+  // accepted, the extension simply never loads, and the only symptom is this
+  // harness timing out waiting for a service worker that was never created.
+  // Chrome 134 on the machine this was written on still honoured it, so CI on
+  // a current Chrome is what found it. Unknown feature names are ignored, so
+  // this is inert on the older build.
+  '--disable-features=DisableLoadExtensionCommandLineSwitch',
   `--host-resolver-rules=MAP api.anonalabs.com 127.0.0.1:${PORT_API}, MAP docs.google.com 127.0.0.1:${PORT_DOCS}`,
   '--ignore-certificate-errors',
   '--no-first-run', '--no-default-browser-check', 'about:blank',
