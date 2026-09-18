@@ -1,0 +1,39 @@
+name: Release the extension
+
+# Tag `v0.1.0` for the extension itself. It builds the same zip a human would
+# upload to the Web Store and attaches it to the release, so what was reviewed
+# and what was uploaded are the same bytes.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write     # to attach the zip to the release
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run package
+
+      - name: the manifest version matches the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          manifest="$(node -p "require('./dist/manifest.json').version")"
+          echo "tag $tag, manifest $manifest"
+          [ "$tag" = "$manifest" ] || { echo "::error::tag and manifest disagree"; exit 1; }
+
+      - name: attach it to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: gh release upload "$GITHUB_REF_NAME" magpie-*.zip --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

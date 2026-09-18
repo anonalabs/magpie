@@ -20,7 +20,7 @@ const HEADFUL = process.argv.includes('--headful');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const profile = mkdtempSync(join(tmpdir(), 'magpie-spike-'));
-const chrome = spawn('/usr/bin/google-chrome', [
+const chrome = spawn((process.env.CHROME_PATH ?? '/usr/bin/google-chrome'), [
   HEADFUL ? '--no-sandbox' : '--headless=new',
   `--remote-debugging-port=${PORT}`,
   `--user-data-dir=${profile}`,

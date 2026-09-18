@@ -1,0 +1,61 @@
+name: Publish magpie-local
+
+# Tag `local-v0.1.0` and push it. The extension has its own tag shape, so one
+# repository can release two things without either of them going out by
+# accident when the other does.
+on:
+  push:
+    tags: ['local-v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Pack and check, publish nothing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write     # npm provenance: proves the tarball came from this workflow
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - run: npm ci
+      - name: tests must pass before anything is published
+        run: npm test
+
+      # The daemon carries a copy of the extension's chunker because npm cannot
+      # package a file from outside the package. If the copy has drifted, the
+      # published package behaves differently from the repository it claims to
+      # be, so this refuses rather than shipping it.
+      - name: the vendored copy is current
+        run: |
+          node local/scripts/sync-lib.mjs
+          git diff --exit-code local/src/chunk.js
+
+      - name: the tag matches the version being published
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tag="${GITHUB_REF_NAME#local-v}"
+          pkg="$(node -p "require('./local/package.json').version")"
+          echo "tag $tag, package $pkg"
+          [ "$tag" = "$pkg" ] || { echo "::error::tag and package.json disagree"; exit 1; }
+
+      - name: what would be published
+        working-directory: local
+        run: npm pack --dry-run
+
+      - name: publish
+        if: ${{ github.event_name == 'push' || inputs.dry_run == false }}
+        working-directory: local
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

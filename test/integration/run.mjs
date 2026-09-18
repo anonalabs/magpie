@@ -145,8 +145,10 @@ manifest.host_permissions.push(`http://127.0.0.1:${PORT_WEB}/*`, 'https://docs.g
 writeFileSync(join(EXT, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
 // ------------------------------------------------------------------ cdp ----
+// The runner's Chrome is not at the same path as a laptop's.
+const CHROME = process.env.CHROME_PATH ?? '/usr/bin/google-chrome';
 const profile = mkdtempSync(join(tmpdir(), 'magpie-profile-'));
-const chrome = spawn('/usr/bin/google-chrome', [
+const chrome = spawn(CHROME, [
   '--headless=new', `--remote-debugging-port=${PORT_CDP}`, `--user-data-dir=${profile}`,
   `--load-extension=${EXT}`, `--disable-extensions-except=${EXT}`,
   `--host-resolver-rules=MAP api.anonalabs.com 127.0.0.1:${PORT_API}, MAP docs.google.com 127.0.0.1:${PORT_DOCS}`,

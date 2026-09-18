@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The build writes dist/, which nothing else reads here, so jobs stay independent.
+jobs:
+  test:
+    name: unit, build, and the remote-code gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Only the root install: the daemon's own dependencies are an inference
+      # runtime, and none of the tests need it. Asserted by running the suite
+      # with local/node_modules removed.
+      - run: npm ci
+
+      - name: build the extension
+        run: npm run build
+
+      - name: no remotely-hosted code in the bundle
+        run: npm run check:remote
+
+      - name: unit tests, extension and daemon
+        run: npm test
+
+  e2e:
+    name: end to end, in a real Chrome
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      # Chrome ships in the runner image, so no third-party action is pulled in
+      # to install one. The harness takes the path rather than hardcoding it.
+      - name: what Chrome are we testing against
+        run: google-chrome --version
+
+      - name: end to end
+        run: npm run test:e2e
+        env:
+          CHROME_PATH: /usr/bin/google-chrome

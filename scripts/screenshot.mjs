@@ -26,7 +26,7 @@ const PORT = 9466;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const profile = mkdtempSync(join(tmpdir(), 'magpie-shot-'));
 
-const chrome = spawn('/usr/bin/google-chrome', [
+const chrome = spawn((process.env.CHROME_PATH ?? '/usr/bin/google-chrome'), [
   '--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
   `--load-extension=${DIST}`, `--disable-extensions-except=${DIST}`,
   '--no-first-run', '--hide-scrollbars', 'about:blank',

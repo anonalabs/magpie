@@ -67,3 +67,37 @@ audience.
 ## Code of conduct
 
 By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Releasing
+
+Two things ship from this repository and they have separate tags, so releasing
+one never releases the other by accident.
+
+| | Tag | What happens |
+|---|---|---|
+| the daemon | `local-v0.1.0` | tests, then `npm publish --provenance` of `local/` as `@anona-labs/magpie-local` |
+| the extension | `v0.1.0` | tests, then the Web Store zip is built and attached to the release |
+
+```bash
+# the daemon
+npm version --prefix local 0.1.1 --no-git-tag-version
+git commit -am "release: magpie-local 0.1.1" && git tag local-v0.1.1 && git push --follow-tags
+
+# the extension
+git tag v0.1.1 && git push --follow-tags
+```
+
+Both workflows refuse if the tag and the version in the file disagree, because
+a tag that says one thing and a package that says another is a release nobody
+can reason about afterwards. The publish also re-runs `sync-lib.mjs` and fails
+on a diff: the daemon carries a copy of the extension's chunker, and a stale
+copy would mean the published package behaves differently from the repository
+it names.
+
+`npm publish` needs an **`NPM_TOKEN`** repository secret: an npm automation
+token with publish rights on the `@anona-labs` scope. Provenance needs nothing
+else, since the workflow already asks for `id-token: write` and this repository
+is public.
+
+`workflow_dispatch` on the publish workflow defaults to a dry run, so the
+packing and the checks can be exercised without shipping anything.
