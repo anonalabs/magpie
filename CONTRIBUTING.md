@@ -103,9 +103,24 @@ Two paths, in the order the workflow tries them, and the same two the SDK's
    workflow itself. This is what a second repository should use rather than
    being handed a copy of the SDK's token. It can only be configured on a
    package that already exists, so it cannot do the first publish.
-2. **An `NPM_TOKEN` repository secret**, a granular token scoped to
-   `@anona-labs` with "bypass 2FA". Needed for the first version, and
-   deletable once (1) is set up.
+2. **An `NPM_TOKEN` repository secret**, a granular token. Needed for the first
+   version, and deletable once (1) is set up. Three settings, and the first
+   publish of a new package fails on any of them:
+
+   - **Packages and scopes → the `@anona-labs` scope → Read and write.**
+     Selecting individual packages is not enough: a package that does not
+     exist yet cannot be in the list, and the registry answers `404 Not Found`
+     on the `PUT` rather than saying so. A 404 on a first publish is a
+     permission message wearing a not-found disguise.
+   - **Bypass 2FA: enabled.** The registry requires two-factor auth *or* a
+     bypass token to publish. An ordinary `npm login` session on an account
+     with 2FA switched off is refused with `403 Two-factor authentication or
+     granular access token with bypass 2fa enabled is required`.
+   - Organisation membership: `npm org ls anona-labs` should list you as
+     `admin` or `owner`. A member without it cannot create a package name.
+
+   Trusted publishing cannot do the first one: its configuration lives on a
+   package's own settings page, so there has to be a package first.
 
 The SDK's token cannot be shared: a GitHub secret is write-only, so no
 workflow in another repository can read it. It is a repository secret on
