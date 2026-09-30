@@ -142,3 +142,11 @@ org puts on releases apply here too.
 
 `workflow_dispatch` on the publish workflow defaults to a dry run, so the
 packing and the checks can be exercised without shipping anything.
+
+**A release runs the workflow file as it was at that tag, not as it is on
+main.** Creating a release for `local-v0.1.0` re-ran the version of
+`publish-local.yml` that the tag points at, which predated the guard that skips
+a version already on the registry, so it tried to publish 0.1.0 a second time
+and failed with `EPUBLISHCONFLICT`. A fix landing on main does not protect runs
+triggered by tags cut before it. Nothing was harmed, and the next tag carries
+the guard.
