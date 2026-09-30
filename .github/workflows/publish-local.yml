@@ -99,6 +99,24 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # A version that is already on the registry is not an error to shout about:
+      # a release published from a tag that was already pushed fires this
+      # workflow twice, and a re-run of a green job should be a no-op rather
+      # than a red X saying the version exists.
+      - name: Is this version already published
+        id: state
+        working-directory: local
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version > /dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$name@$version is already on the registry, so there is nothing to publish"
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+            echo "$name@$version is new"
+          fi
+
       - name: Pack (dry run)
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
         working-directory: local
@@ -108,7 +126,9 @@ jobs:
       # the secret is unset it resolves to an empty string, which npm ignores,
       # and the OIDC path takes over.
       - name: Publish
-        if: github.event_name != 'workflow_dispatch' || !inputs.dry_run
+        if: |
+          steps.state.outputs.already == 'false'
+          && (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
         working-directory: local
         run: npm publish --provenance --access public
         env:
