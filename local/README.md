@@ -7,6 +7,8 @@ Claude can read them over MCP.
 No account, no key to obtain, no network. The pages you save never leave the
 computer they were saved on.
 
+**Documentation: [magpie.anonalabs.com/local](https://magpie.anonalabs.com/local)**
+
 ```
   magpie extension ──POST──▶  127.0.0.1  ──▶  ~/.magpie/memories.db
                                    ▲

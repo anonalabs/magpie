@@ -1,0 +1,490 @@
+/* magpie's stylesheet, shared by every page on the site.
+   Lifted out of index.html when the local store got a page of its own:
+   two copies of 487 lines is two copies that disagree by the second
+   change. */
+/* anonalabs/website's world: folded sheets of white paper, warm ink, one red. */
+  :root {
+    /* Declared so the browser knows both themes are handled here: without it
+       Chromium's auto-dark is free to re-darken an already dark page, and
+       scrollbars and form controls stay in the wrong one. */
+    color-scheme: light dark;
+    --paper: #ffffff;
+    --sheet: #f7f6f4;
+    --sheet-2: #eeece8;
+    --ink: #1a1816;
+    --muted: #5d5853;
+    --faint: #6f6a64;
+    --line: #e6e3df;
+    --line-strong: #cfcac4;
+
+    --red: #e7413c;
+    --red-btn: #ce3430;
+    --red-btn-hover: #b02324;
+    --red-text: #b02324;
+    --red-tint: #fbecea;
+    --on-red: #ffffff;
+
+    --code-bg: #1a1d21;
+    --code-ink: #e6e8eb;
+    --code-muted: #9aa0a8;
+    --code-string: #e8c98a;
+    --code-key: #ff7a72;
+
+    --display: "Instrument Serif", Georgia, "Times New Roman", serif;
+    --body: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  /* Same warm ink and the same red, lifted to carry on a dark ground. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141211;
+      --sheet: #1c1917;
+      --sheet-2: #262220;
+      --ink: #f2efea;
+      --muted: #b8b2a9;
+      --faint: #928b82;
+      --line: #2a2624;
+      --line-strong: #3d3835;
+
+      --red: #ff5a54;
+      --red-btn: #e7413c;
+      --red-btn-hover: #ff6b63;
+      --red-text: #ff8079;
+      --red-tint: rgba(231, 65, 60, .14);
+      --on-red: #16110f;
+
+      --code-bg: #0e0c0b;
+      --code-ink: #e6e8eb;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #141211;
+    --sheet: #1c1917;
+    --sheet-2: #262220;
+    --ink: #f2efea;
+    --muted: #b8b2a9;
+    --faint: #928b82;
+    --line: #2a2624;
+    --line-strong: #3d3835;
+
+    --red: #ff5a54;
+    --red-btn: #e7413c;
+    --red-btn-hover: #ff6b63;
+    --red-text: #ff8079;
+    --red-tint: rgba(231, 65, 60, .14);
+    --on-red: #16110f;
+
+    --code-bg: #0e0c0b;
+    --code-ink: #e6e8eb;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 1rem/1.55 var(--body);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* A page, not a column. 56rem is a reading measure and was being applied to
+     the whole site, so on anything wider than a laptop it read as a card
+     floating in the middle. Running text is still held to a measure where it
+     matters. The lede and section intros set their own. */
+  .wrap { max-width: min(120rem, 100%); margin: 0 auto; padding-inline: clamp(24px, 5vw, 96px); }
+
+  /* Rules run the full width of the window rather than stopping at the content.
+     That is what makes a centred column read as a page instead of a panel. */
+  .bleed { border-top: 1px solid var(--line); }
+
+  a { color: var(--red-text); text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; border-radius: 3px; }
+
+  h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance; }
+  h1 { font-size: clamp(2.75rem, 5.6vw, 5.5rem); line-height: .98; letter-spacing: -.025em; }
+  h2 { font-size: clamp(1.75rem, 3.2vw, 2.5rem); line-height: 1.04; letter-spacing: -.02em; }
+  p { margin: 0; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: .6875rem; letter-spacing: .11em;
+    text-transform: uppercase; color: var(--faint);
+  }
+
+  /* ── masthead ───────────────────────────────────────────────────────────── */
+  .masthead {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding-block: 20px;
+  }
+  .masthead-bleed { border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; }
+  .brand svg { width: 21px; height: 21px; border-radius: 5px; }
+  .masthead-right { display: flex; align-items: center; gap: 16px; font-size: .875rem; }
+  .masthead-right a { color: var(--muted); text-decoration: none; }
+  .masthead-right a:hover { color: var(--ink); }
+
+  .theme-toggle {
+    display: grid; place-items: center; width: 30px; height: 30px; padding: 0;
+    color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 6px;
+    cursor: pointer;
+  }
+  .theme-toggle:hover { color: var(--ink); border-color: var(--line-strong); }
+  .theme-toggle svg { width: 15px; height: 15px; }
+  .theme-toggle .moon { display: none; }
+  :root[data-theme="light"] { color-scheme: light; }
+  :root[data-theme="dark"] .theme-toggle .moon { display: block; }
+  :root[data-theme="dark"] .theme-toggle .sun { display: none; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-toggle .moon { display: block; }
+    :root:not([data-theme="light"]) .theme-toggle .sun { display: none; }
+  }
+
+  /* ── hero ───────────────────────────────────────────────────────────────── */
+  .hero {
+    display: grid; grid-template-columns: minmax(0, 1fr) clamp(20rem, 34vw, 36rem);
+    gap: clamp(36px, 5vw, 72px); align-items: center;
+    padding-block: clamp(48px, 7vw, 96px);
+  }
+  @media (max-width: 60rem) { .hero { grid-template-columns: 1fr; gap: 36px; } }
+
+  .hero .lede { font-size: 1.0625rem; line-height: 1.55; color: var(--muted); margin-top: 18px; max-width: 26rem; }
+  .actions { display: flex; gap: 10px; margin-top: 26px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px;
+    font: 600 .875rem/1 var(--body); border-radius: 7px; text-decoration: none;
+    border: 1px solid transparent; cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .btn-primary { background: var(--red-btn); color: var(--on-red); }
+  .btn-primary:hover { background: var(--red-btn-hover); }
+  .btn-ghost { background: var(--paper); color: var(--ink); border-color: var(--line-strong); }
+  .btn-ghost:hover { border-color: var(--ink); }
+  .note { margin-top: 12px; font-size: .8125rem; color: var(--faint); }
+
+  /* ── the loop: taken from the page, condensed here, carried to memory ──── */
+  .demo {
+    margin: 0;
+    background: var(--sheet);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 16px 12px;
+  }
+  .demo svg { width: 100%; height: auto; display: block; }
+  .demo figcaption {
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: .6875rem;
+    color: var(--faint);
+    text-align: center;
+  }
+
+  .panel { fill: var(--paper); stroke: var(--line); stroke-width: 1; }
+  .line { fill: var(--line-strong); }
+  .label {
+    fill: var(--faint);
+    font-family: var(--mono);
+    font-size: 7px;
+    text-anchor: middle;
+  }
+  .shelf { fill: var(--sheet-2); stroke: var(--line); stroke-width: .5; }
+  .chip-body { fill: none; stroke: var(--line-strong); stroke-width: 1.5; }
+  .chip-pins { stroke: var(--line-strong); stroke-width: 1.5; stroke-linecap: round; fill: none; }
+  .chip-scan { fill: var(--red); opacity: 0; }
+
+  /* The work itself, inside the machine panel. Hidden per shape, never on the
+     chunks group: an opacity:0 parent hides children whatever their own
+     opacity animates to, and the three chunks are animated one by one. */
+  .work.in, .work.out, .work.chunks rect { opacity: 0; }
+  .work.in { fill: var(--line-strong); }
+  .work.chunks rect { fill: var(--line-strong); }
+  .work.out { fill: var(--red); }
+
+  .feather-dark { fill: var(--ink); }
+  .feather-light { fill: var(--paper); }
+  .beak { fill: var(--red); }
+  .eye { fill: var(--paper); }
+  .wing { fill: var(--ink); }
+  .carried { fill: var(--red); }
+  .pluck { fill: var(--red); opacity: 0; }
+
+  /* The carrier travels in viewBox units, so its origin is the viewBox. */
+  .carrier { transform-box: view-box; transform-origin: 0 0; }
+  /* Everything else turns about its own middle. */
+  .carried { transform-box: fill-box; transform-origin: left center; }
+  .wing, .chip-scan, .pluck, .shelf.landed { transform-box: fill-box; transform-origin: center; }
+  .work.in, .work.out, .work.chunks rect { transform-box: fill-box; transform-origin: left center; }
+
+  /* ── the flight ───────────────────────────────────────────────────────────
+     Nine seconds, and the bird is never still for long: it comes in from off
+     the page, perches, lifts a line, climbs, crosses, hovers while the machine
+     works, crosses again, files it, and leaves. The y values arc rather than
+     slide, and the bank comes from the same keyframes. */
+  .carrier { animation: flight 9s cubic-bezier(.45, .05, .35, 1) infinite; }
+  @keyframes flight {
+    0%     { transform: translate(-34px, 34px) rotate(6deg); opacity: 0; }
+    4%     { transform: translate(0px, 40px) rotate(5deg); opacity: 1; }
+    9%     { transform: translate(34px, 56px) rotate(-4deg); opacity: 1; }   /* drops onto the page */
+    12%, 19% { transform: translate(44px, 52px) rotate(0deg); opacity: 1; }  /* perched, taking it */
+    24%    { transform: translate(70px, 30px) rotate(-9deg); opacity: 1; }   /* climbs away */
+    31%    { transform: translate(124px, 12px) rotate(-2deg); opacity: 1; }
+    /* Above the panel, not inside it: the machine needs its own space to show
+       the work, and a bird parked on the chip hides the thing being explained. */
+    36%, 52% { transform: translate(165px, 8px) rotate(0deg); opacity: 1; }
+    58%    { transform: translate(214px, 14px) rotate(-5deg); opacity: 1; }
+    66%, 74% { transform: translate(283px, 50px) rotate(0deg); opacity: 1; } /* files it */
+    82%    { transform: translate(324px, 22px) rotate(-11deg); opacity: 1; }
+    90%, 100% { transform: translate(364px, 10px) rotate(-12deg); opacity: 0; }
+  }
+
+  /* Wings beat in flight and fold while perched or hovering. */
+  .wing { animation: beat .34s ease-in-out infinite; }
+  @keyframes beat {
+    0%, 100% { transform: rotate(0deg) scaleY(1); }
+    50%      { transform: rotate(-34deg) scaleY(.55); }
+  }
+
+  /* The line it lifts, leaving the page. */
+  .pluck { animation: pluck 9s cubic-bezier(.45, .05, .35, 1) infinite; }
+  @keyframes pluck {
+    0%, 11%  { opacity: 0; transform: translate(0, 0); }
+    14%      { opacity: 1; transform: translate(0, 0); }
+    19%      { opacity: 1; transform: translate(4px, -6px) scaleX(.9); }
+    23%, 100% { opacity: 0; transform: translate(8px, -12px) scaleX(.8); }
+  }
+
+  /* What it carries: full length off the page, short after the machine.
+     Named .carried and not .payload: the comparison panels below own that name,
+     and this animation was silently squashing them to 26% of their width. */
+  .carried { animation: condense 9s cubic-bezier(.45, .05, .35, 1) infinite; }
+  @keyframes condense {
+    0%, 12%   { opacity: 0; transform: scaleX(1); }
+    19%, 34%  { opacity: 1; transform: scaleX(1); }
+    36%, 55%  { opacity: 0; transform: scaleX(1); }    /* handed to the machine */
+    58%, 70%  { opacity: 1; transform: scaleX(.26); }  /* taken back, folded */
+    74%, 100% { opacity: 0; transform: scaleX(.26); }
+  }
+
+  /* The page gives its text up. */
+  .page-lines .line { animation: taken 9s ease-in-out infinite; }
+  .page-lines .line:nth-child(1) { animation-delay: .02s; }
+  .page-lines .line:nth-child(2) { animation-delay: .06s; }
+  .page-lines .line:nth-child(3) { animation-delay: .10s; }
+  .page-lines .line:nth-child(4) { animation-delay: .14s; }
+  .page-lines .line:nth-child(5) { animation-delay: .18s; }
+  .page-lines .line:nth-child(6) { animation-delay: .22s; }
+  @keyframes taken {
+    0%, 14%   { opacity: 1; }
+    22%, 88%  { opacity: .2; }
+    97%, 100% { opacity: 1; }
+  }
+
+  /* The machine doing the work, in the order it actually happens: the long text
+     arrives, splits into chunks, each is summarised, and they fold into one. */
+  .chip-scan { animation: scan 9s ease-in-out infinite; }
+  @keyframes scan {
+    0%, 35%   { opacity: 0; transform: translateY(0); }
+    38%       { opacity: 1; transform: translateY(0); }
+    44%       { opacity: 1; transform: translateY(30px); }
+    47%       { opacity: 1; transform: translateY(0); }
+    50%, 100% { opacity: 0; transform: translateY(30px); }
+  }
+
+  /* 1. it arrives, full length */
+  .work.in { animation: arrive 9s cubic-bezier(.45,.05,.35,1) infinite; }
+  @keyframes arrive {
+    0%, 35%  { opacity: 0; transform: scaleX(.1); }
+    38%, 40% { opacity: 1; transform: scaleX(1); }
+    42%, 100% { opacity: 0; transform: scaleX(1); }
+  }
+
+  /* 2. broken into chunks, each summarised in turn */
+  .work.chunks rect { animation: chunk 9s cubic-bezier(.45,.05,.35,1) infinite; }
+  .work.chunks rect:nth-child(1) { animation-delay: .0s; }
+  .work.chunks rect:nth-child(2) { animation-delay: .18s; }
+  .work.chunks rect:nth-child(3) { animation-delay: .36s; }
+  @keyframes chunk {
+    0%, 41%  { opacity: 0; transform: scaleX(1); }
+    43%      { opacity: 1; transform: scaleX(1); }
+    46%      { opacity: 1; transform: scaleX(.45); }   /* summarised */
+    49%, 100% { opacity: 0; transform: scaleX(.45); }
+  }
+
+  /* 3. folded into the one short line the bird leaves with */
+  .work.out { animation: folded 9s cubic-bezier(.16,1,.3,1) infinite; }
+  @keyframes folded {
+    0%, 49%   { opacity: 0; transform: scaleX(2.6); }
+    52%, 56%  { opacity: 1; transform: scaleX(1); }
+    58%, 100% { opacity: 0; transform: scaleX(1); }
+  }
+  .chip { animation: working 9s ease-in-out infinite; }
+  @keyframes working {
+    0%, 34%   { opacity: .4; }
+    40%, 50%  { opacity: 1; }
+    56%, 100% { opacity: .4; }
+  }
+
+  /* One more thing on the shelf, settling as it lands. */
+  .shelf.landed { animation: filed 9s cubic-bezier(.16, 1, .3, 1) infinite; }
+  @keyframes filed {
+    0%, 68%   { opacity: 0; transform: scaleX(.2); fill: var(--red); }
+    74%       { opacity: 1; transform: scaleX(1.04); fill: var(--red); }
+    78%, 94%  { opacity: 1; transform: scaleX(1); fill: var(--red); }
+    100%      { opacity: 0; transform: scaleX(.2); fill: var(--red); }
+  }
+
+  /* At rest it still reads as the whole story rather than a first frame: the
+     bird is over the machine, what it carries is already short, and the shelf
+     already holds the memory. */
+  @media (prefers-reduced-motion: reduce) {
+    .carrier, .carried, .page-lines .line, .chip, .chip-scan, .shelf.landed, .wing, .pluck,
+    .work.in, .work.out, .work.chunks rect {
+      animation: none;
+    }
+    /* At rest, the machine shows the step that explains it: chunks, condensed. */
+    .work.chunks rect { opacity: 1; transform: scaleX(.45); }
+    .carrier { transform: translate(165px, 40px); }
+    .carried { transform: scaleX(.26); opacity: 1; }
+    .shelf.landed { opacity: 1; fill: var(--red); }
+    .chip { opacity: 1; }
+    .page-lines .line { opacity: .2; }
+  }
+
+  /* ── destinations ───────────────────────────────────────────────────────── */
+  section { padding-block: clamp(44px, 6vw, 76px); }
+  .section-head { display: grid; gap: 10px; margin-bottom: 28px; }
+  .section-head p { color: var(--muted); max-width: 34rem; }
+
+  .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 56rem) { .row3 { grid-template-columns: 1fr; } }
+
+  /* A card is a link: a reader who does not have one of these yet has to be
+     able to get to it, and the endpoint written on the card is no use to
+     somebody who still needs an account. Grid rows, so the "sign up" line sits
+     on the bottom edge of all three however long the description runs. */
+  a.dest {
+    display: grid; gap: 6px; padding: 18px;
+    grid-template-rows: auto auto auto 1fr auto;
+    background: var(--sheet); border: 1px solid var(--line); border-radius: 10px;
+    color: inherit; text-decoration: none;
+    transition: border-color .18s ease, background .18s ease;
+  }
+  a.dest:hover { border-color: var(--red); background: var(--paper); }
+  a.dest:hover .dest-go { text-decoration: underline; }
+  .dest-go {
+    font-family: var(--mono); font-size: .6875rem; color: var(--red-text);
+    margin-top: 4px;
+  }
+  .dest-mark { width: 22px; height: 22px; display: block; margin-bottom: 2px; }
+  .mono-tile { fill: var(--ink); }
+  .mono-letter {
+    fill: var(--paper);
+    font-family: var(--body);
+    font-size: 10px;
+    font-weight: 700;
+    text-anchor: middle;
+  }
+  .dest b { font-size: .9375rem; font-weight: 600; }
+  .dest span { font-family: var(--mono); font-size: .6875rem; color: var(--faint); }
+  .dest p { font-size: .8125rem; color: var(--muted); }
+
+  /* ── what is sent ───────────────────────────────────────────────────────── */
+  /* Stretch, not start: two panels comparing the same article should be the
+     same object twice, and a short one next to a tall one reads as two. */
+  .leaves { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 56rem) { .leaves { grid-template-columns: 1fr; } }
+  .leaf {
+    background: var(--sheet); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px; display: grid; gap: 10px;
+    /* head, then the content taking the slack, then the note pinned below,
+       so the equal height shows as content rather than as trailing air. */
+    grid-template-rows: auto 1fr auto;
+  }
+  .leaf.is-default { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-tint); }
+  .leaf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .leaf-name { font-weight: 600; font-size: .9375rem; }
+  .leaf-size { font-family: var(--mono); font-size: .75rem; color: var(--red-text); font-variant-numeric: tabular-nums; }
+  .payload {
+    font-family: var(--mono); font-size: .6875rem; line-height: 1.65;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 7px;
+    padding: 11px; color: var(--ink);
+  }
+  /* A sentence or two under a heading, held to a measure so it reads as prose
+     rather than running the width of the page. */
+  /* The local pipeline, drawn once, because four boxes explain it and three
+     paragraphs do not. */
+  .pipeline { margin: 26px 0 22px; }
+  .pipeline svg { width: 100%; height: auto; display: block; }
+  .pl-box { fill: var(--sheet); stroke: var(--line); stroke-width: 1; }
+  .pl-store { fill: var(--red-tint); stroke: var(--red); }
+  .pl-read { fill: var(--sheet-2); }
+  .pl-title { fill: var(--ink); font-family: var(--body); font-size: 13px; font-weight: 600; text-anchor: middle; }
+  .pl-line { fill: var(--muted); font-family: var(--body); font-size: 11px; text-anchor: middle; }
+  .pl-foot { fill: var(--faint); font-family: var(--mono); font-size: 9.5px; text-anchor: middle; }
+  .pl-note { fill: var(--faint); font-family: var(--mono); font-size: 9.5px; text-anchor: middle; }
+  .pl-arrow { stroke: var(--line-strong); stroke-width: 1.5; fill: none; marker-end: url(#pl-head); }
+  .pl-back { stroke: var(--red); stroke-dasharray: 4 3; marker-end: url(#pl-head-red); }
+  .pl-note-red { fill: var(--red-text); }
+  .pipeline figcaption {
+    font-size: .8125rem; color: var(--muted); margin-top: 10px; max-width: 46rem;
+  }
+  .lede-sm {
+    font-size: 1rem; line-height: 1.6; color: var(--muted);
+    max-width: 46rem; margin: 0 0 22px;
+  }
+  .leaf-note { font-size: .8125rem; color: var(--muted); }
+  .leaf-note b { color: var(--red-text); font-family: var(--mono); font-weight: 500; }
+
+  /* One square per summary's worth of the same article. */
+  .units {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 7px);
+    gap: 3px;
+    justify-content: space-between;
+    align-content: center;
+    padding: 12px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+  }
+  .units i { display: block; width: 7px; height: 7px; border-radius: 1.5px; background: var(--line-strong); }
+  .units i.is-summary { background: var(--red); }
+
+  /* ── steps ──────────────────────────────────────────────────────────────── */
+  .steps { display: grid; counter-reset: step; }
+  .step {
+    display: grid; grid-template-columns: 1.75rem 1fr; gap: 12px; align-items: start;
+    padding: 15px 0; border-bottom: 1px solid var(--line);
+  }
+  .step:last-child { border-bottom: 0; }
+  .step::before {
+    counter-increment: step; content: counter(step);
+    font-family: var(--mono); font-size: .8125rem; color: var(--red-text); padding-top: 2px;
+  }
+  .step b { font-size: .9375rem; font-weight: 600; }
+  .step p { font-size: .875rem; color: var(--muted); margin-top: 3px; }
+  code {
+    font-family: var(--mono); font-size: .78125rem;
+    background: var(--sheet-2); padding: 2px 6px; border-radius: 4px;
+    overflow-wrap: anywhere;
+  }
+
+  /* ── table ──────────────────────────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .875rem; }
+  th, td { text-align: left; padding: 11px 16px 11px 0; border-bottom: 1px solid var(--line); }
+  td { color: var(--ink); }
+  th {
+    font-family: var(--mono); font-size: .6875rem; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--faint); font-weight: 400;
+  }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  footer {
+    padding-block: 32px 48px;
+    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    font-size: .8125rem; color: var(--faint);
+  }
+  footer a { color: var(--muted); }
