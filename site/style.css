@@ -126,6 +126,26 @@
   .masthead-right a { color: var(--muted); text-decoration: none; }
   .masthead-right a:hover { color: var(--ink); }
 
+  /* The one action in the masthead, and it is the half of the product people
+     do not know exists: an outlined button in the brand red, so it reads as a
+     thing to press next to four things to read. */
+  .masthead-right a.mast-cta {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 13px; border-radius: 7px;
+    font-weight: 600; color: var(--red-text);
+    background: var(--red-tint); border: 1px solid var(--red);
+    transition: background .15s ease, color .15s ease;
+  }
+  .masthead-right a.mast-cta:hover { background: var(--red-btn); color: var(--on-red); border-color: var(--red-btn); }
+  .mast-cta svg { width: 14px; height: 14px; }
+
+  /* A phone has no room for four words and a button on one line. The words go
+     and the button stays, because it is the one thing here you can act on. */
+  @media (max-width: 44rem) {
+    .masthead-right { gap: 12px; }
+    .masthead-right a:not(.mast-cta) { display: none; }
+  }
+
   .theme-toggle {
     display: grid; place-items: center; width: 30px; height: 30px; padding: 0;
     color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 6px;
