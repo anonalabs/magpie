@@ -101,3 +101,22 @@ describe('drawing it', () => {
     expect(width(bar(0, 0, 10))).toBe(10);
   });
 });
+
+describe('the version it reports', () => {
+  it('is the one in package.json, not a second copy of it', async () => {
+    const { createRequire } = await import('node:module');
+    const pkg = createRequire(import.meta.url)('../package.json');
+    const cli = await import('node:fs').then((fs) => fs.readFileSync(new URL('../src/cli.js', import.meta.url), 'utf8'));
+
+    // No literal version in the source: it is read from the package, so a
+    // release cannot ship a binary that announces the previous one.
+    expect(cli).not.toMatch(/const VERSION = ['"]\d+\.\d+\.\d+['"]/);
+    expect(pkg.version).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it('points its bin at the entry point that carries the Node check', async () => {
+    const { createRequire } = await import('node:module');
+    const pkg = createRequire(import.meta.url)('../package.json');
+    expect(pkg.bin['magpie-local']).toBe('src/bin.js');
+  });
+});

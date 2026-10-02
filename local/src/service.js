@@ -10,12 +10,39 @@
 // tested, printed, and read by the person before they agree to it.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 export const LABEL = 'magpie-local';
 export const BUNDLE_ID = 'com.anonalabs.magpie-local';
+
+/**
+ * How to run this copy, as a service manager must be told it.
+ *
+ * Never the `magpie-local` shim: that is a file beginning `#!/usr/bin/env
+ * node`, and `env` searches a PATH that belongs to whoever started the
+ * process. systemd's PATH is not a login shell's, and on a machine with nvm it
+ * found the system Node 18, which has no `node:sqlite` at all. The service
+ * started, failed on an unknown builtin module, and retried forever.
+ *
+ * So: this exact node binary, and the script the shim points at, both absolute.
+ * The cost is that moving or removing this Node installation breaks the unit,
+ * which is a thing you can read in the file rather than a mystery.
+ */
+export function selfExec({
+  argv = process.argv,
+  execPath = process.execPath,
+  realpath = realpathSync,
+} = {}) {
+  const script = argv[1] ?? '';
+  try {
+    return { exec: execPath, args: [realpath(script), 'serve'] };
+  } catch {
+    // A path that cannot be resolved is still better named than guessed at.
+    return { exec: execPath, args: [script, 'serve'] };
+  }
+}
 
 /**
  * What to write, where, and what to run afterwards.

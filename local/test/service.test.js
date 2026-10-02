@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { serviceFile, LABEL, BUNDLE_ID } from '../src/service.js';
+import { serviceFile, selfExec, LABEL, BUNDLE_ID } from '../src/service.js';
+import { supportedNode } from '../src/quiet.js';
 
 const base = { exec: '/usr/bin/node', args: ['/opt/magpie/local/src/cli.js', 'serve'], home: '/home/reader', port: 7777 };
 
@@ -48,5 +49,43 @@ describe('starting with the computer', () => {
 
   it('says so rather than guessing on a platform it does not know', () => {
     expect(serviceFile({ ...base, platform: 'aix' })).toBeNull();
+  });
+});
+
+describe('how a service is told to run this copy', () => {
+  it('names this node binary and the real script, never the shim', () => {
+    // The shim begins `#!/usr/bin/env node`, and a service manager's PATH is
+    // not a shell's: on this machine it found Node 18, which has no
+    // node:sqlite, and the service failed forever on an unknown builtin.
+    const { exec, args } = selfExec({
+      argv: ['/nvm/v22/bin/node', '/nvm/v22/bin/magpie-local'],
+      execPath: '/nvm/v22/bin/node',
+      realpath: (p) => (p.endsWith('magpie-local') ? '/nvm/v22/lib/node_modules/@anona-labs/magpie-local/src/cli.js' : p),
+    });
+
+    expect(exec).toBe('/nvm/v22/bin/node');
+    expect(args).toEqual(['/nvm/v22/lib/node_modules/@anona-labs/magpie-local/src/cli.js', 'serve']);
+  });
+
+  it('falls back to the path it was given when it cannot be resolved', () => {
+    const { exec, args } = selfExec({
+      argv: ['/usr/bin/node', '/gone/magpie-local'],
+      execPath: '/usr/bin/node',
+      realpath: () => { throw new Error('ENOENT'); },
+    });
+    expect(exec).toBe('/usr/bin/node');
+    expect(args).toEqual(['/gone/magpie-local', 'serve']);
+  });
+});
+
+describe('the Node it needs', () => {
+  it('accepts 22.5 and newer, and nothing older', () => {
+    expect(supportedNode('22.5.0')).toBe(true);
+    expect(supportedNode('22.21.1')).toBe(true);
+    expect(supportedNode('24.0.0')).toBe(true);
+    // the version this actually failed on, in a systemd unit
+    expect(supportedNode('18.20.6')).toBe(false);
+    expect(supportedNode('22.4.1')).toBe(false);
+    expect(supportedNode('20.11.0')).toBe(false);
   });
 });

@@ -16,9 +16,11 @@
 // evaluated before the database module is.
 import './quiet.js';
 
+import { createRequire } from 'node:module';
+
 import { DB_PATH, DEFAULT_PORT, EMBED_MODEL, HOME, token, tokenExists } from './config.js';
 import { LOG_PATH, healthy, running, start, stop } from './daemon.js';
-import { install, installed, serviceFile, uninstall } from './service.js';
+import { install, installed, selfExec, serviceFile, uninstall } from './service.js';
 import { open } from './db.js';
 import { backfillLoop, embed, embedIfReady, isReady } from './embed.js';
 import { createApi } from './http.js';
@@ -28,20 +30,9 @@ import {
   accent, bar, bold, bytes, count, dim, green, grey, heading, mark, row, since, sparkline, uptime,
 } from './ui.js';
 
-const VERSION = '0.1.0';
-
-/**
- * How to run this copy: the node binary and this file, unless it was started
- * through an installed `magpie-local` shim, in which case that is the stable
- * thing to point a service at. A service pointing into a checkout that later
- * moves is a service that silently stops working.
- */
-function selfExec() {
-  const script = process.argv[1] ?? '';
-  return script.endsWith('cli.js')
-    ? { exec: process.execPath, args: [script, 'serve'] }
-    : { exec: script || 'magpie-local', args: ['serve'] };
-}
+// Read, not retyped: a version in two places is a version that disagrees with
+// itself on the release where somebody updates one of them.
+const VERSION = createRequire(import.meta.url)('../package.json').version;
 
 function plan() {
   const { exec, args } = selfExec();
