@@ -14,6 +14,8 @@ import { createServer } from 'node:http';
 import { chunkText } from './chunk.js';
 import { deletePage, getPage, recentPages, spaces, stats, upsertPage } from './db.js';
 import { search } from './search.js';
+import { report } from './stats.js';
+import { page as uiPage } from './web.js';
 
 const MAX_BODY = 8 * 1024 * 1024;
 // Roughly 3000 characters a chunk, matching what the extension's summariser
@@ -60,7 +62,13 @@ const readBody = (req) => new Promise((resolve, reject) => {
   req.on('error', reject);
 });
 
-export function createApi({ db, token, embed = null, allowedExtensionId = null, version = '0.1.0' }) {
+export function createApi({
+  db, token, embed = null, allowedExtensionId = null, version = '0.1.0', dbPath = null,
+}) {
+  // Rendered once: it is the same bytes on every request, and a store that is
+  // answering searches should not be re-building a string to do it.
+  const html = uiPage({ version });
+
   return createServer(async (req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
     const cors = corsFor(req.headers.origin, allowedExtensionId);
@@ -80,6 +88,24 @@ export function createApi({ db, token, embed = null, allowedExtensionId = null, 
       return json(res, 200, { ok: true, name: 'magpie-local', version }, cors ?? {});
     }
 
+    // The page, also unauthenticated, and for the same reason: it holds no data.
+    // Every number on it comes from a call below that the token guards, and the
+    // token reaches it through the URL fragment, which no server ever sees.
+    if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/ui')) {
+      res.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        // Everything the page needs is inline, so nothing may be fetched from
+        // anywhere, and nothing may be sent anywhere but here.
+        'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; "
+          + "script-src 'unsafe-inline'; img-src data:; connect-src 'self'; "
+          + "form-action 'none'; base-uri 'none'",
+        'referrer-policy': 'no-referrer',
+        'x-content-type-options': 'nosniff',
+        'cache-control': 'no-store',
+      });
+      return res.end(html);
+    }
+
     const offered = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim();
     if (offered !== token) {
       return fail(res, 401, 'bad_token', 'Wrong or missing token. It is printed once at first run and lives in ~/.magpie/token.', cors ?? {});
@@ -92,6 +118,14 @@ export function createApi({ db, token, embed = null, allowedExtensionId = null, 
 
       if (req.method === 'GET' && url.pathname === '/v1/stats') {
         return json(res, 200, stats(db), cors ?? {});
+      }
+
+      // Everything the store knows about itself, which is what the page and the
+      // `magpie-local` command both draw. Separate from /v1/stats rather than
+      // widening it: that one is what the extension reads on every capture, and
+      // it should stay three counts and not a fortnight of history.
+      if (req.method === 'GET' && url.pathname === '/v1/overview') {
+        return json(res, 200, report(db, { dbPath }), cors ?? {});
       }
 
       if (req.method === 'GET' && url.pathname === '/v1/search') {

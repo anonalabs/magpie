@@ -7,6 +7,7 @@
 //   magpie-local restart
 //   magpie-local serve        run it in the foreground (logs here, ctrl-c stops)
 //   magpie-local mcp          speak MCP on stdio; Claude starts this itself
+//   magpie-local ui           open it in a browser
 //   magpie-local search <q>   search the store from here
 //   magpie-local install      start it with the computer, from now on
 //   magpie-local uninstall    stop doing that
@@ -24,6 +25,7 @@ import { install, installed, selfExec, serviceFile, uninstall } from './service.
 import { open } from './db.js';
 import { backfillLoop, embed, embedIfReady, isReady } from './embed.js';
 import { createApi } from './http.js';
+import { opener, uiUrl } from './web.js';
 import { search } from './search.js';
 import { report } from './stats.js';
 import {
@@ -52,7 +54,9 @@ async function serve() {
   const secret = token();
   const db = open();
 
-  const server = createApi({ db, token: secret, embed: embedIfReady, version: VERSION });
+  const server = createApi({
+    db, token: secret, embed: embedIfReady, version: VERSION, dbPath: DB_PATH,
+  });
   server.listen(DEFAULT_PORT, '127.0.0.1', () => {
     const counts = report(db, { dbPath: DB_PATH });
     say('');
@@ -70,6 +74,7 @@ async function serve() {
       say(grey('  It is in ~/.magpie/token if you need it again.'));
     }
     say('');
+    say(grey('  Look at it:          ') + `magpie-local ui`);
     say(grey('  Let Claude read it:  ') + `claude mcp add --scope user magpie -- magpie-local mcp`);
     say(grey('  Stop with ctrl-c, or run it in the background with `magpie-local start`.'));
     say('');
@@ -139,6 +144,7 @@ async function status() {
 
   out.push(heading('  Reading it'));
   out.push(row('claude', `claude mcp add --scope user magpie -- magpie-local mcp`));
+  out.push(row('browser', `magpie-local ui   ${dim(`http://127.0.0.1:${DEFAULT_PORT}`)}`));
   out.push(row('here', `magpie-local search ${dim('"what you are looking for"')}`));
   out.push(row('token', grey(`${HOME}/token`)));
   out.push(row('model', grey(s.model)));
@@ -204,6 +210,7 @@ function help() {
     `  ${bold('magpie-local serve')}        ${grey('run it here, in the foreground')}`,
     `  ${bold('magpie-local install')}      ${grey('start it with the computer, from now on')}`,
     `  ${bold('magpie-local uninstall')}    ${grey('stop doing that')}`,
+    `  ${bold('magpie-local ui')}           ${grey('open it in a browser: search, read, forget')}`,
     `  ${bold('magpie-local search')} ${dim('<q>')}   ${grey('search the store from this terminal')}`,
     `  ${bold('magpie-local mcp')}          ${grey('speak MCP on stdio; Claude starts this itself')}`,
     `  ${bold('magpie-local token')}        ${grey('print the token, for pasting into magpie')}`,
@@ -264,6 +271,43 @@ switch (command) {
     const result = uninstall(service);
     say(result.existed ? `  ${green('removed')} ${grey(result.path)}` : `  ${grey('it was not installed')}`);
     for (const line of result.ran) say(grey(`  ran ${line}`));
+    break;
+  }
+
+  case 'ui': {
+    // Starting it is part of opening it: a page that loads against nothing
+    // shows an error about a server the person did not know they had to run.
+    if (!await healthy()) {
+      say(grey('  starting the store first...'));
+      const result = await start();
+      if (result.failed) {
+        say(`  ${accent('it did not come up')}. The log is ${grey(LOG_PATH)}`);
+        process.exit(1);
+      }
+    }
+
+    const url = uiUrl(DEFAULT_PORT, token());
+    const how = opener();
+    say('');
+    say(`  ${mark()} ${grey('in your browser')}`);
+    say('');
+    say(`      ${accent(url)}`);
+    say('');
+    say(dim('  The token rides in the # of that address, which no server ever sees.'));
+    say(dim('  The page keeps it, so every later visit is just http://127.0.0.1:' + DEFAULT_PORT + '.'));
+    say('');
+
+    if (how) {
+      const { spawn } = await import('node:child_process');
+      // Detached and ignoring its output: a browser that keeps the terminal
+      // open, or writes to it after this process is gone, is a worse outcome
+      // than one that silently did not launch next to a printed address.
+      try {
+        spawn(how.cmd, [...how.args, url], { detached: true, stdio: 'ignore' }).unref();
+      } catch {
+        say(grey('  Could not open a browser; the address above is the whole of it.'));
+      }
+    }
     break;
   }
 

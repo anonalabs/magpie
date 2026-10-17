@@ -12,7 +12,9 @@ computer they were saved on.
 ```
   magpie extension ──POST──▶  127.0.0.1  ──▶  ~/.magpie/memories.db
                                    ▲
-  Claude Code / Desktop ──MCP──────┘   search · get_page · recent
+  Claude Code / Desktop ──MCP──────┤   search · get_page · recent
+                                   │
+  your browser ────────────────────┘   magpie-local ui
 ```
 
 ## Install
@@ -53,6 +55,7 @@ the directory you happened to be in and nowhere else.
 | `magpie-local start` | run it in the background until the next reboot |
 | `magpie-local stop` / `restart` | |
 | `magpie-local serve` | run it here, in the foreground |
+| `magpie-local ui` | open it in a browser: search, read, forget |
 | `magpie-local search <query>` | search the store from the terminal |
 | `magpie-local token` | print the token, for pasting into magpie |
 | `magpie-local mcp` | speak MCP on stdio; Claude starts this itself |
@@ -68,6 +71,17 @@ sparkline, and the newest thing you saved.
 
 It is read from your own file and printed on your own terminal. magpie has no
 telemetry: none of it is sent anywhere, by that command or by anything else.
+
+`magpie-local ui` opens `http://127.0.0.1:7777`, starting the store first if it
+is not already up. The page shows what is stored, searches it, reads a whole
+page back, and forgets one you no longer want.
+
+The token reaches that page in the `#` of the address, which a browser never
+sends to a server and never writes to a log; the page keeps it, so every visit
+after the first is just the address. Everything the page needs is in the
+document itself, so no font, script or stylesheet is fetched from anywhere and
+it works with the network down. The page is served without a token because it
+holds no data: every number on it comes from a call the token guards.
 
 `start` writes a pid file and a log in `~/.magpie/`, and detaches, so closing
 the terminal does not take the store with it. It does not survive a reboot.

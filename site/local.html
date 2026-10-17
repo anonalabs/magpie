@@ -123,6 +123,7 @@
         <p class="rail-title">On this page</p>
         <a href="#install">Install</a>
         <a href="#commands">Commands</a>
+        <a href="#browser">In a browser</a>
         <a href="#claude">Claude</a>
         <a href="#search">Search</a>
         <a href="#stored">What it stores</a>
@@ -164,6 +165,7 @@ claude mcp add --scope user magpie -- magpie-local mcp</pre>
         <tr><td><code>magpie-local uninstall</code></td><td>stop doing that</td></tr>
         <tr><td><code>magpie-local start</code> / <code>stop</code> / <code>restart</code></td><td>in the background, until the next reboot</td></tr>
         <tr><td><code>magpie-local serve</code></td><td>in the foreground, logging here</td></tr>
+        <tr><td><code>magpie-local ui</code></td><td>open it in a browser: search, read, forget</td></tr>
         <tr><td><code>magpie-local search "…"</code></td><td>search the store from the terminal</td></tr>
         <tr><td><code>magpie-local token</code></td><td>print the token, for pasting into magpie</td></tr>
         <tr><td><code>magpie-local mcp</code></td><td>speak MCP on stdio; Claude starts this itself</td></tr>
@@ -177,6 +179,25 @@ claude mcp add --scope user magpie -- magpie-local mcp</pre>
     <p class="aside"><code>install</code> writes your platform&rsquo;s own service file &mdash; a systemd user
       unit, a LaunchAgent, or a Startup entry &mdash; and prints the path and every command it ran, so
       nothing happens to your machine that you cannot read first.</p>
+
+    <h2 id="browser">In a browser</h2>
+    <p>The terminal answers the same questions, and reading is not what a terminal is for: the store
+      holds whole articles, and the thing you most want to do with a search result is read it.</p>
+<pre>magpie-local ui</pre>
+    <p>It starts the store if it is not already up and opens
+      <code>http://127.0.0.1:7777</code>. The page shows what is stored and how much of it is
+      embedded, searches everything with the same two retrievers, reads a whole page back with its
+      summary above it, and forgets one you no longer want.</p>
+    <div class="callout">
+      <p>The token reaches the page in the <code>#</code> of that address, which a browser never
+        sends to a server and never writes to a log. The page keeps it, so every visit after the
+        first is just <code>127.0.0.1:7777</code>. The page itself is served without a token because
+        it holds no data: every number on it arrives from a call the token guards, and a hostile web
+        page can read neither this origin&rsquo;s storage nor our answers.</p>
+    </div>
+    <p class="aside">Everything the page needs is in the document &mdash; no font, no script and no
+      stylesheet is fetched from anywhere &mdash; so a local store does not stop being readable when
+      the house wifi does.</p>
 
     <h2 id="claude">What Claude gets</h2>
     <table>

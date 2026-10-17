@@ -172,6 +172,10 @@ describe('the capture round trip', () => {
 
   it('has no route it does not mean to have', async () => {
     expect((await call('/v1/../etc/passwd')).status).toBe(404);
-    expect((await call('/')).status).toBe(404);
+    expect((await call('/v1/anything-else')).status).toBe(404);
+    // `/` is the page now, and it is the only non-API thing served: there is no
+    // directory behind it, so nothing can be asked for by name.
+    expect((await call('/')).status).toBe(200);
+    expect((await call('/index.html')).status).toBe(404);
   });
 });
