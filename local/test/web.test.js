@@ -61,6 +61,12 @@ describe('the page itself', () => {
     expect((await get('/ui')).status).toBe(200);
   });
 
+  it('answers a HEAD, which is what every link check and curl -I sends', async () => {
+    const res = await get('/', { method: 'HEAD' });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-security-policy')).toContain("default-src 'none'");
+  });
+
   it('forbids fetching anything from anywhere', async () => {
     const csp = (await get('/')).headers.get('content-security-policy');
     expect(csp).toContain("default-src 'none'");

@@ -91,7 +91,11 @@ export function createApi({
     // The page, also unauthenticated, and for the same reason: it holds no data.
     // Every number on it comes from a call below that the token guards, and the
     // token reaches it through the URL fragment, which no server ever sees.
-    if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/ui')) {
+    // HEAD as well as GET. Node suppresses the body for a HEAD itself, and a
+    // page that 401s the one method every link checker and every `curl -I`
+    // reaches for reads as a page that needs a credential it does not.
+    if ((req.method === 'GET' || req.method === 'HEAD')
+      && (url.pathname === '/' || url.pathname === '/ui')) {
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
         // Everything the page needs is inline, so nothing may be fetched from
