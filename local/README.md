@@ -100,6 +100,15 @@ machine that you cannot read first. `magpie-local uninstall` removes it. On
 Linux it starts at login and stops at logout; `loginctl enable-linger $USER`
 makes it run without you logged in at all.
 
+After `install`, the service manager owns the process, so `start`, `stop` and
+`restart` talk to it rather than to a pid file of ours — `systemctl --user
+restart magpie-local` is what `magpie-local restart` runs, and it prints the
+command and the version that came back. That matters after an upgrade: `npm
+install -g` replaces the files on disk and changes nothing about the daemon
+already running, so `restart` is the step that makes the new version the one
+answering. If something is serving port 7777 that none of this started, it
+says so and stops, rather than killing a process it cannot account for.
+
 `serve` and `mcp` are separate processes on purpose. Claude starts the MCP one
 itself and owns its lifetime; `serve` runs while your browser does. They share
 the file, which is what SQLite is for.

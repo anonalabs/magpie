@@ -17,11 +17,12 @@
 // evaluated before the database module is.
 import './quiet.js';
 
+import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
 import { DB_PATH, DEFAULT_PORT, EMBED_MODEL, HOME, token, tokenExists } from './config.js';
-import { LOG_PATH, healthy, running, start, stop } from './daemon.js';
-import { install, installed, selfExec, serviceFile, uninstall } from './service.js';
+import { LOG_PATH, foreign, healthy, running, start, stop } from './daemon.js';
+import { install, installed, selfExec, serviceControl, serviceFile, uninstall } from './service.js';
 import { open } from './db.js';
 import { backfillLoop, embed, embedIfReady, isReady } from './embed.js';
 import { createApi } from './http.js';
@@ -218,33 +219,150 @@ function help() {
   ].join('\n'));
 }
 
+// ------------------------------------------------------------- the daemon ---
+
+// Who owns the running daemon.
+//
+// `install` hands it to a service manager, and from that moment ours is the
+// wrong hand to reach with: the unit execs `serve` itself, so there is no pid
+// file of ours to read, `stop` has nothing to kill, and a `start` that spawns
+// anyway only earns EADDRINUSE beside a supervisor that will outlive it. So
+// when a service file is there the manager is asked first, and our own path is
+// what happens when that command does not land.
+function manager(step) {
+  if (!installed()) return null;
+  const cmd = serviceControl()?.[step];
+  if (!cmd) return null;
+
+  const ran = `${cmd[0]} ${cmd[1].join(' ')}`;
+  try {
+    execFileSync(cmd[0], cmd[1], { stdio: 'pipe' });
+    return { ran };
+  } catch (err) {
+    return { ran, error: String(err.message ?? err).split('\n')[0] };
+  }
+}
+
+/** Wait for whoever was asked to start it to actually be answering. */
+async function waitUp(wait = 8000) {
+  const deadline = Date.now() + wait;
+  for (;;) {
+    const health = await healthy();
+    if (health) return health;
+    if (Date.now() >= deadline) return null;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+}
+
+/** Start it however it is owned here. */
+async function bringUp() {
+  const mine = running();
+  if (mine && await healthy()) {
+    return { ok: true, already: true, pid: mine.pid, startedAt: mine.startedAt };
+  }
+
+  // A manager-owned daemon writes no pid file of ours, so the port is the only
+  // thing that can say it is already up. `systemctl start` on a running unit
+  // succeeds quietly, and reporting that as a fresh start is the same class of
+  // lie as the one this whole path exists to stop telling.
+  const other = await foreign();
+  if (other && installed()) return { ok: true, already: true, health: other };
+
+  const viaManager = manager('start');
+  if (viaManager && !viaManager.error) {
+    const health = await waitUp();
+    return health ? { ok: true, ran: viaManager.ran, health } : { ok: false, ran: viaManager.ran };
+  }
+  const managerError = viaManager?.error ? viaManager : null;
+
+  const result = await start();
+  if (result.foreign) return { ok: false, foreign: true, health: result.health, managerError };
+  if (result.failed) return { ok: false, pid: result.pid, managerError };
+  return { ok: true, ...result, managerError };
+}
+
+/** What to say when something we did not start is holding the port. */
+function sayForeign(health) {
+  const what = health?.version ? ` ${grey(`${health.name ?? 'magpie-local'} ${health.version}`)}` : '';
+  say(`  ${accent('something else is already serving')} http://127.0.0.1:${DEFAULT_PORT}${what}`);
+  say(grey('  It was not started by this command, so there is no pid of ours to stop.'));
+  say(grey(installed()
+    ? '  A service file is installed but its manager did not answer; `magpie-local status` says more.'
+    : '  Stop it where it was started, or `magpie-local install` to let a service manager own it.'));
+}
+
 switch (command) {
   case 'serve': await serve(); break;
 
   case 'start': {
-    const result = await start();
-    if (result.already) { say(`  ${green('already running')} ${grey(`pid ${result.pid}, up ${uptime(result.startedAt)}`)}`); break; }
-    if (result.failed) {
-      say(`  ${accent('it did not come up')}. The log is ${grey(LOG_PATH)}`);
+    const result = await bringUp();
+    if (result.managerError) say(grey(`  \`${result.managerError.ran}\` did not run: ${result.managerError.error}`));
+    if (result.foreign) { sayForeign(result.health); process.exit(1); }
+    if (result.already) {
+      say(`  ${green('already running')} ${grey(result.pid
+        ? `pid ${result.pid}, up ${uptime(result.startedAt)}`
+        : `${result.health?.name ?? 'magpie-local'} ${result.health?.version} · started outside this command`)}`);
+      break;
+    }
+    if (!result.ok) {
+      say(`  ${accent('it did not come up')}. The log is ${grey(result.ran ? 'its service manager' : LOG_PATH)}`);
       process.exit(1);
     }
-    say(`  ${green('started')} ${grey(`pid ${result.pid} · http://127.0.0.1:${DEFAULT_PORT} · log ${LOG_PATH}`)}`);
+    say(`  ${green('started')} ${grey(result.ran
+      ? `${result.ran} · http://127.0.0.1:${DEFAULT_PORT}`
+      : `pid ${result.pid} · http://127.0.0.1:${DEFAULT_PORT} · log ${LOG_PATH}`)}`);
     if (!tokenExists()) say(grey('  run `magpie-local token` for the token to paste into magpie'));
     break;
   }
 
   case 'stop': {
+    if (!running()) {
+      const viaManager = manager('stop');
+      if (viaManager && !viaManager.error) {
+        // The manager reporting success is not the same as the port going
+        // quiet: a unit that was already inactive stops very happily while
+        // somebody else is the one serving.
+        const still = await healthy();
+        if (!still) {
+          say(`  ${green('stopped')} ${grey(viaManager.ran)}`);
+          break;
+        }
+        sayForeign(still);
+        process.exit(1);
+      }
+      if (viaManager?.error) say(grey(`  \`${viaManager.ran}\` did not run: ${viaManager.error}`));
+    }
+
     const result = await stop();
+    if (result.foreign) { sayForeign(result.health); process.exit(1); }
     say(result.wasRunning ? `  ${green('stopped')} ${grey(`pid ${result.pid}`)}` : `  ${grey('not running')}`);
     break;
   }
 
   case 'restart': {
-    await stop();
-    const result = await start();
-    say(result.failed
+    const viaManager = manager('restart');
+    if (viaManager && !viaManager.error) {
+      const up = await waitUp();
+      if (!up) {
+        say(`  ${accent('it did not come back up')} ${grey(viaManager.ran)}`);
+        process.exit(1);
+      }
+      // The version, because the whole point of a restart is usually that it
+      // is running code older than what is installed, and a pid cannot say so.
+      say(`  ${green('restarted')} ${grey(`${viaManager.ran} · ${up.name ?? 'magpie-local'} ${up.version}`)}`);
+      break;
+    }
+    if (viaManager?.error) say(grey(`  \`${viaManager.ran}\` did not run: ${viaManager.error}`));
+
+    const down = await stop();
+    if (down.foreign) { sayForeign(down.health); process.exit(1); }
+
+    const result = await bringUp();
+    if (result.foreign) { sayForeign(result.health); process.exit(1); }
+    say(!result.ok
       ? `  ${accent('it did not come back up')}. The log is ${grey(LOG_PATH)}`
       : `  ${green('restarted')} ${grey(`pid ${result.pid}`)}`);
+    if (!result.ok) process.exit(1);
     break;
   }
 
@@ -279,8 +397,9 @@ switch (command) {
     // shows an error about a server the person did not know they had to run.
     if (!await healthy()) {
       say(grey('  starting the store first...'));
-      const result = await start();
-      if (result.failed) {
+      const result = await bringUp();
+      if (result.foreign) { sayForeign(result.health); process.exit(1); }
+      if (!result.ok) {
         say(`  ${accent('it did not come up')}. The log is ${grey(LOG_PATH)}`);
         process.exit(1);
       }

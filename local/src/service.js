@@ -148,6 +148,53 @@ export function serviceFile({ platform, exec, args = ['serve'], home = homedir()
 const quote = (part) => (/\s/.test(part) ? `"${part}"` : part);
 const escapeXml = (text) => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+/**
+ * How to tell this platform's service manager to start, stop or restart it.
+ *
+ * `install` hands the daemon over, and from then on our pid file is empty and
+ * stopping it is the manager's job: the unit execs `serve` directly, so
+ * `running()` sees nothing, `stop` has nothing to kill, and a `start` that
+ * spawns alongside it only fights the supervisor. These are the commands that
+ * reach the daemon that is actually there.
+ *
+ * Windows is deliberately null. The Startup folder is not a supervisor — it
+ * runs a command at login and nothing watches it afterwards — so there is no
+ * manager to delegate to, and saying so beats issuing a command that silently
+ * governs nothing.
+ */
+export function serviceControl({
+  platform = process.platform,
+  home = homedir(),
+  uid = process.getuid?.(),
+} = {}) {
+  if (platform === 'linux') {
+    return {
+      start: ['systemctl', ['--user', 'start', LABEL]],
+      stop: ['systemctl', ['--user', 'stop', LABEL]],
+      restart: ['systemctl', ['--user', 'restart', LABEL]],
+    };
+  }
+
+  if (platform === 'darwin') {
+    const domain = `gui/${uid ?? ''}`;
+    const target = `${domain}/${BUNDLE_ID}`;
+    const plist = join(home, 'Library/LaunchAgents', `${BUNDLE_ID}.plist`);
+    return {
+      // bootstrap/bootout rather than start/stop: `KeepAlive` is
+      // `SuccessfulExit: false`, so a job stopped with a signal has not
+      // exited successfully and launchd dutifully brings it back. Booting it
+      // out of the domain is what stop has to mean. RunAtLoad returns it at
+      // the next login either way, which is what `systemctl stop` does too.
+      start: ['launchctl', ['bootstrap', domain, plist]],
+      stop: ['launchctl', ['bootout', target]],
+      // -k kills it first; a kickstart of a running job is otherwise a no-op.
+      restart: ['launchctl', ['kickstart', '-k', target]],
+    };
+  }
+
+  return null;
+}
+
 /** Whether a service file has been written for this platform. */
 export function installed(platform = process.platform, home = homedir()) {
   const plan = serviceFile({ platform, exec: 'node', home });

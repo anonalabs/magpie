@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { serviceFile, selfExec, LABEL, BUNDLE_ID } from '../src/service.js';
+import { serviceControl, serviceFile, selfExec, LABEL, BUNDLE_ID } from '../src/service.js';
 import { supportedNode } from '../src/quiet.js';
 
 const base = { exec: '/usr/bin/node', args: ['/opt/magpie/local/src/cli.js', 'serve'], home: '/home/reader', port: 7777 };
@@ -75,6 +75,35 @@ describe('how a service is told to run this copy', () => {
     });
     expect(exec).toBe('/usr/bin/node');
     expect(args).toEqual(['/gone/magpie-local', 'serve']);
+  });
+});
+
+describe('reaching the daemon a service manager owns', () => {
+  it('asks systemd on linux, by the same name it installed', () => {
+    const control = serviceControl({ platform: 'linux' });
+    expect(control.restart).toEqual(['systemctl', ['--user', 'restart', LABEL]]);
+    expect(control.stop).toEqual(['systemctl', ['--user', 'stop', LABEL]]);
+    expect(control.start).toEqual(['systemctl', ['--user', 'start', LABEL]]);
+  });
+
+  it('boots a LaunchAgent out rather than signalling it', () => {
+    const control = serviceControl({ platform: 'darwin', home: '/Users/reader', uid: 501 });
+    // KeepAlive is SuccessfulExit:false, so a job killed with a signal has not
+    // exited successfully and launchd brings it straight back: `stop` has to
+    // mean out of the domain, or it does not mean stopped.
+    expect(control.stop).toEqual(['launchctl', ['bootout', `gui/501/${BUNDLE_ID}`]]);
+    expect(control.start).toEqual([
+      'launchctl', ['bootstrap', 'gui/501', `/Users/reader/Library/LaunchAgents/${BUNDLE_ID}.plist`],
+    ]);
+    // -k, because a kickstart of a running job is otherwise a no-op.
+    expect(control.restart).toEqual(['launchctl', ['kickstart', '-k', `gui/501/${BUNDLE_ID}`]]);
+  });
+
+  it('has nothing to delegate to on Windows, and says so', () => {
+    // The Startup folder runs a command at login and never watches it again.
+    // A command issued at a supervisor that is not there would govern nothing.
+    expect(serviceControl({ platform: 'win32' })).toBeNull();
+    expect(serviceControl({ platform: 'aix' })).toBeNull();
   });
 });
 
