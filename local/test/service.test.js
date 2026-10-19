@@ -13,7 +13,14 @@ describe('starting with the computer', () => {
     expect(plan.contents).toContain('Environment=MAGPIE_PORT=7777');
     // A user unit, so it needs no root and starts at login
     expect(plan.contents).toContain('WantedBy=default.target');
-    expect(plan.enable.map(([cmd]) => cmd)).toEqual(['systemctl', 'systemctl']);
+    // enable, then restart. `--now` does nothing to a unit that is already
+    // running, so installing over an existing install would rewrite this file
+    // and leave the old command serving.
+    expect(plan.enable).toEqual([
+      ['systemctl', ['--user', 'daemon-reload']],
+      ['systemctl', ['--user', 'enable', LABEL]],
+      ['systemctl', ['--user', 'restart', LABEL]],
+    ]);
   });
 
   it('quotes a path with a space rather than making two arguments of it', () => {
@@ -28,7 +35,13 @@ describe('starting with the computer', () => {
     expect(plan.contents).toContain('<key>RunAtLoad</key>');
     expect(plan.contents).toContain('<string>/opt/magpie/local/src/cli.js</string>');
     expect(plan.contents).toContain('<string>/home/reader/.magpie/magpie-local.log</string>');
-    expect(plan.enable[0]).toEqual(['launchctl', ['load', '-w', plan.path]]);
+    // A reinstall has to clear the loaded job first: `load` of one already
+    // loaded is an error, and it is tolerated because a first install has
+    // nothing to remove.
+    expect(plan.enable[0][0]).toBe('launchctl');
+    expect(plan.enable[0][1][0]).toBe('bootout');
+    expect(plan.enable[0][2]).toEqual({ tolerate: true });
+    expect(plan.enable[1]).toEqual(['launchctl', ['load', '-w', plan.path]]);
   });
 
   it('escapes a path that would otherwise break the plist', () => {

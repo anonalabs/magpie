@@ -129,6 +129,7 @@
         <a href="#stored">What it stores</a>
         <a href="#security">Security</a>
         <a href="#config">Configuration</a>
+        <a href="#upgrading">Upgrading</a>
         <a href="#trouble">When it will not start</a>
         <a href="#limits">Limits</a>
       </nav>
@@ -163,7 +164,7 @@ claude mcp add --scope user magpie -- magpie-local mcp</pre>
         <tr><td><code>magpie-local</code></td><td>what is in the store, and whether it is running</td></tr>
         <tr><td><code>magpie-local install</code></td><td>run it now, and with the computer from now on</td></tr>
         <tr><td><code>magpie-local uninstall</code></td><td>stop doing that</td></tr>
-        <tr><td><code>magpie-local start</code> / <code>stop</code> / <code>restart</code></td><td>in the background, until the next reboot</td></tr>
+        <tr><td><code>magpie-local start</code> / <code>stop</code> / <code>restart</code></td><td>in the background; after <code>install</code>, through the service manager</td></tr>
         <tr><td><code>magpie-local serve</code></td><td>in the foreground, logging here</td></tr>
         <tr><td><code>magpie-local ui</code></td><td>open it in a browser: search, read, forget</td></tr>
         <tr><td><code>magpie-local search "…"</code></td><td>search the store from the terminal</td></tr>
@@ -276,6 +277,21 @@ claude mcp add --scope user magpie -- magpie-local mcp</pre>
       vector records the model that wrote it, search ignores the ones that do not match, and they are
       re-embedded in the background.</p>
 
+    <h2 id="upgrading">Upgrading</h2>
+
+    <p>Installing a new version replaces the files on disk and changes nothing about the store
+      that is already running, so there is a second step:</p>
+<pre>npm install -g @anona-labs/magpie-local@latest
+magpie-local restart</pre>
+    <p><code>restart</code> prints the version that came back, which is the thing worth reading:
+      it is the proof the new code is the code answering. If you installed it as a service,
+      <code>restart</code> talks to your service manager rather than to a process of its own,
+      because that is what is holding the port.</p>
+    <p class="aside">Before 0.2.2 this did not work: <code>restart</code> reported success while
+      the installed service kept running the old version, so an upgrade silently did not take.
+      If you are on an older one, <code>magpie-local</code> prints the version that is actually
+      answering.</p>
+
     <h2 id="trouble">When it will not start</h2>
 
     <h3>The service installs but never answers</h3>
@@ -289,6 +305,9 @@ journalctl --user -u magpie-local -n 20</pre>
       yours. Upgrade and reinstall the unit:</p>
 <pre>npm install -g @anona-labs/magpie-local@latest
 magpie-local install</pre>
+    <p class="aside">Before 0.2.3, <code>install</code> rewrote the unit and never applied it
+      &mdash; <code>systemctl enable --now</code> does nothing to a unit that is already running
+      &mdash; so this remedy left the old command serving. It restarts the service now.</p>
 
     <h3>magpie says the store is not running</h3>
     <p>It is a message, not a lost capture: the extension keeps the capture and retries on its own

@@ -100,6 +100,12 @@ machine that you cannot read first. `magpie-local uninstall` removes it. On
 Linux it starts at login and stops at logout; `loginctl enable-linger $USER`
 makes it run without you logged in at all.
 
+`install` is safe to run again, and running it again is how a changed unit
+takes effect: it rewrites the file, reloads it and restarts the service. It
+used to run `systemctl enable --now`, which starts a unit that is stopped and
+does nothing whatever to one that is already running — so reinstalling over an
+existing install rewrote the file and left the old command serving.
+
 After `install`, the service manager owns the process, so `start`, `stop` and
 `restart` talk to it rather than to a pid file of ours — `systemctl --user
 restart magpie-local` is what `magpie-local restart` runs, and it prints the

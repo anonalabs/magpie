@@ -1,6 +1,6 @@
 {
   "name": "@anona-labs/magpie-local",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "A local memory store for magpie: your captures on your own machine, searchable, and readable by Claude over MCP.",
   "license": "MIT",
   "repository": {

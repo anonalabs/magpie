@@ -378,8 +378,13 @@ switch (command) {
       say(grey('  The file is written; run that command yourself when you can.'));
     }
     say(grey(`  ${service.note}`));
-    const up = await healthy();
-    if (!up) say(grey('  Not answering yet; `magpie-local` will say when it is.'));
+    // Waiting, because `install` restarts the service now: asking the instant
+    // after a restart reports "not answering yet" about a daemon that is
+    // simply still binding its port.
+    const up = await waitUp(5000);
+    say(up
+      ? grey(`  answering on http://127.0.0.1:${DEFAULT_PORT} · ${up.name ?? 'magpie-local'} ${up.version}`)
+      : grey('  Not answering yet; `magpie-local` will say when it is.'));
     break;
   }
 

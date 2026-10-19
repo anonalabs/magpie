@@ -75,9 +75,16 @@ export function serviceFile({ platform, exec, args = ['serve'], home = homedir()
         'WantedBy=default.target',
         '',
       ].filter((line) => line !== null).join('\n'),
+      // `enable` then `restart`, not `enable --now`: `--now` starts a unit that
+      // is stopped and does nothing at all to one that is already running, so
+      // installing over an existing install rewrote this file and left the old
+      // command serving — which is the state the upgrade instructions used to
+      // leave people in. `restart` starts it from cold too, so one sequence
+      // covers a first install and a reinstall.
       enable: [
         ['systemctl', ['--user', 'daemon-reload']],
-        ['systemctl', ['--user', 'enable', '--now', LABEL]],
+        ['systemctl', ['--user', 'enable', LABEL]],
+        ['systemctl', ['--user', 'restart', LABEL]],
       ],
       disable: [
         ['systemctl', ['--user', 'disable', '--now', LABEL]],
@@ -123,7 +130,14 @@ export function serviceFile({ platform, exec, args = ['serve'], home = homedir()
         '</plist>',
         '',
       ].join('\n'),
-      enable: [['launchctl', ['load', '-w', plist]]],
+      // Booting it out first, because `load` of an already-loaded job is an
+      // error, and reinstalling over an existing install is the ordinary case
+      // after an upgrade. It is tolerated: on a first install there is nothing
+      // loaded to remove, and that is not a failure to report.
+      enable: [
+        ['launchctl', ['bootout', `gui/${process.getuid?.() ?? ''}/${BUNDLE_ID}`], { tolerate: true }],
+        ['launchctl', ['load', '-w', plist]],
+      ],
       disable: [['launchctl', ['unload', '-w', plist]]],
       note: 'It starts when you log in.',
     };
@@ -207,11 +221,13 @@ export function install(plan, { run = true } = {}) {
 
   const ran = [];
   if (run) {
-    for (const [cmd, args] of plan.enable) {
+    for (const [cmd, args, opts] of plan.enable) {
       try {
         execFileSync(cmd, args, { stdio: 'pipe' });
         ran.push(`${cmd} ${args.join(' ')}`);
       } catch (err) {
+        // A step that is only there to clear the way for the next one.
+        if (opts?.tolerate) continue;
         // The file is written either way; a missing systemctl or a session
         // without a user bus is a thing to report, not a reason to leave half
         // an install behind.
